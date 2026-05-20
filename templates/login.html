@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ВЕГАЛИБР — Вход</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+       background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
+       font-family:'Segoe UI',Arial,sans-serif}
+  .card{background:#fff;border-radius:16px;padding:48px 44px 40px;
+        width:100%;max-width:380px;box-shadow:0 24px 64px rgba(0,0,0,.4)}
+  .logo-wrap{text-align:center;margin-bottom:28px}
+  .logo-wrap img{height:44px;object-fit:contain}
+  .title{font-size:1.25rem;font-weight:700;color:#1f5c9e;
+         text-align:center;margin-bottom:6px}
+  .sub{font-size:.82rem;color:#888;text-align:center;margin-bottom:28px}
+  label{display:block;font-size:.8rem;font-weight:600;color:#555;margin-bottom:6px}
+  input[type=password]{width:100%;padding:11px 14px;border:1.5px solid #d0d8e8;
+    border-radius:8px;font-size:.95rem;outline:none;transition:.2s}
+  input[type=password]:focus{border-color:#1f5c9e;box-shadow:0 0 0 3px rgba(31,92,158,.12)}
+  .btn{width:100%;margin-top:20px;padding:12px;background:#1f5c9e;color:#fff;
+       border:none;border-radius:8px;font-size:1rem;font-weight:600;
+       cursor:pointer;transition:.2s}
+  .btn:hover{background:#174e8a}
+  .error{margin-top:14px;padding:10px 14px;background:#fff0f0;
+         border:1px solid #f5c2c2;border-radius:8px;
+         color:#cc2222;font-size:.85rem;text-align:center}
+  .footer{margin-top:20px;text-align:center;font-size:.75rem;color:#bbb}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-wrap">
+    <img src="/static/logo.png" alt="ВЕГАЛИБР">
+  </div>
+  <div class="title">Калькулятор КП</div>
+  <div class="sub">Введите пароль для доступа</div>
+  <form method="post">
+    <label for="pwd">Пароль</label>
+    <input type="password" id="pwd" name="password" placeholder="••••••••" autofocus>
+    <button type="submit" class="btn">Войти</button>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+  </form>
+  <div class="footer">ООО «ВЕГАЛИБР» · vegalibr.ru</div>
+</div>
+</body>
+</html>

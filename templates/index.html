@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ВЕГАЛИБР — Калькулятор КП</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4fa;color:#333;min-height:100vh}
+
+/* ── Шапка ── */
+.top-bar{background:linear-gradient(90deg,#1a1a2e,#1f5c9e);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:56px}
+.top-bar img{height:34px;object-fit:contain}
+.top-bar .logout{color:#aac;font-size:.8rem;text-decoration:none;
+  border:1px solid #446;padding:4px 12px;border-radius:6px;transition:.2s}
+.top-bar .logout:hover{background:rgba(255,255,255,.1);color:#fff}
+
+/* ── Layout ── */
+.main{max-width:1100px;margin:28px auto;padding:0 16px;
+  display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+@media(max-width:780px){.main{grid-template-columns:1fr}}
+
+/* ── Карточка ── */
+.card{background:#fff;border-radius:12px;padding:24px;
+  box-shadow:0 2px 12px rgba(31,92,158,.10)}
+.card h2{font-size:1rem;font-weight:700;color:#1f5c9e;margin-bottom:16px;
+  padding-bottom:8px;border-bottom:2px solid #e8eef8}
+
+/* ── Форма ── */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.78rem;font-weight:600;color:#666;margin-bottom:4px}
+.field input,.field select{width:100%;padding:8px 10px;
+  border:1.5px solid #d0d8e8;border-radius:7px;font-size:.88rem;outline:none;transition:.2s}
+.field input:focus,.field select:focus{border-color:#1f5c9e;
+  box-shadow:0 0 0 3px rgba(31,92,158,.1)}
+
+/* ── Дроп-зона ── */
+#drop-zone{border:2.5px dashed #b0c4e0;border-radius:12px;padding:36px 20px;
+  text-align:center;cursor:pointer;transition:.25s;background:#f8fafd;margin-bottom:14px}
+#drop-zone.over{border-color:#1f5c9e;background:#eef4fb}
+#drop-zone .icon{font-size:2.6rem;margin-bottom:8px}
+#drop-zone p{font-size:.9rem;color:#666}
+#drop-zone p strong{color:#1f5c9e}
+#file-input{display:none}
+#file-name{font-size:.8rem;color:#888;text-align:center;margin-bottom:10px;min-height:18px}
+
+/* ── Кнопки ── */
+.btn-parse{width:100%;padding:11px;background:#1f5c9e;color:#fff;
+  border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:.2s}
+.btn-parse:hover{background:#174e8a}
+.btn-parse:disabled{background:#aaa;cursor:not-allowed}
+.btn-dl{width:100%;padding:12px;background:#16a34a;color:#fff;
+  border:none;border-radius:8px;font-size:1rem;font-weight:700;
+  cursor:pointer;transition:.2s;margin-top:10px;display:none}
+.btn-dl:hover{background:#15803d}
+
+/* ── Спиннер ── */
+.spinner{display:none;text-align:center;padding:20px;color:#1f5c9e;font-size:.9rem}
+.spinner::before{content:"⏳ "}
+
+/* ── Таблица ── */
+#result-wrap{display:none}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:.78rem}
+thead th{background:#1f5c9e;color:#fff;padding:7px 8px;text-align:center;white-space:nowrap}
+thead th:nth-child(2){text-align:left}
+tbody tr:nth-child(even){background:#f5f9ff}
+tbody td{padding:6px 8px;border-bottom:1px solid #e8eef4;white-space:nowrap}
+tbody td:nth-child(2){white-space:normal;min-width:200px}
+td.r{text-align:right}
+td.c{text-align:center}
+.total-row td{background:#d6e4f7;font-weight:700;color:#1f5c9e}
+.warn-row td{background:#fff3cd;font-size:.75rem;color:#856404}
+
+/* ── Итоги ── */
+.summary{margin-top:14px;padding:14px 18px;background:#eef4fb;
+  border-radius:8px;display:flex;gap:24px;flex-wrap:wrap}
+.sum-item{font-size:.85rem;color:#555}
+.sum-item strong{display:block;font-size:1.05rem;color:#1f5c9e;font-weight:700}
+
+/* ── Ошибка ── */
+.error-box{padding:12px 16px;background:#fff0f0;border:1px solid #f5c2c2;
+  border-radius:8px;color:#cc2222;font-size:.85rem;margin-top:10px;display:none}
+
+/* ── АА-список ── */
+.aa-box{margin-top:12px;padding:12px;background:#fff8e6;border:1px solid #ffe083;
+  border-radius:8px;display:none}
+.aa-box h3{font-size:.82rem;font-weight:700;color:#9a6200;margin-bottom:6px}
+.aa-box li{font-size:.78rem;color:#6b4f00;margin-left:16px;margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <img src="/static/logo.png" alt="ВЕГАЛИБР">
+  <a href="/logout" class="logout">Выйти</a>
+</div>
+
+<div class="main">
+
+  <!-- ── Левая панель ── -->
+  <div>
+    <div class="card">
+      <h2>Параметры КП</h2>
+
+      <div class="field">
+        <label>Заказчик</label>
+        <input type="text" id="customer" placeholder="ООО «Название»">
+      </div>
+      <div class="field">
+        <label>Номер заявки</label>
+        <input type="text" id="order_num" placeholder="3164">
+      </div>
+      <div class="field">
+        <label>Менеджер</label>
+        <input type="text" id="manager" value="Перог Вадим Александрович">
+      </div>
+
+      <div class="card" style="margin-top:16px;padding:16px">
+        <h2>Загрузка заявки</h2>
+        <div id="drop-zone">
+          <div class="icon">📂</div>
+          <p>Перетащи сюда <strong>.xlsx</strong><br>или нажми для выбора</p>
+        </div>
+        <div id="file-name">файл не выбран</div>
+        <input type="file" id="file-input" accept=".xlsx,.xls">
+        <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
+          Рассчитать
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Правая панель ── -->
+  <div>
+    <div class="card">
+      <h2>Результат расчёта</h2>
+
+      <div class="spinner" id="spinner">Обработка файла…</div>
+      <div class="error-box" id="err-box"></div>
+
+      <div id="result-wrap">
+        <div class="tbl-wrap">
+          <table id="result-table">
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>Наименование</th>
+                <th>Кол.</th>
+                <th>Цена</th>
+                <th>Скидка</th>
+                <th>Цена со ск.</th>
+                <th>Калибр.</th>
+                <th>Сумма б/НДС</th>
+                <th>НДС</th>
+                <th>Итого</th>
+              </tr>
+            </thead>
+            <tbody id="result-body"></tbody>
+          </table>
+        </div>
+
+        <div class="summary" id="summary"></div>
+
+        <div class="aa-box" id="aa-box">
+          <h3>⚠ Требуют уточнения у АА (не удалось определить цену):</h3>
+          <ul id="aa-list"></ul>
+        </div>
+
+        <button class="btn-dl" id="btn-dl" onclick="downloadKP()">
+          ⬇ Скачать КП (.docx)
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let parsedData = null;
+
+// ── Drag & drop ──────────────────────────────────────────────────────────────
+const dz   = document.getElementById('drop-zone');
+const fi   = document.getElementById('file-input');
+const fnEl = document.getElementById('file-name');
+const btnP = document.getElementById('btn-parse');
+
+dz.addEventListener('click', () => fi.click());
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fi.addEventListener('change', () => { if (fi.files.length) setFile(fi.files[0]); });
+
+function setFile(f) {
+  fnEl.textContent = f.name;
+  fi.fileObj = f;
+  btnP.disabled = false;
+}
+
+// ── Парсинг ──────────────────────────────────────────────────────────────────
+function fmt(v) {
+  return Number(v).toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+async function parseFile() {
+  const f = fi.fileObj || fi.files[0];
+  if (!f) return;
+
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('result-wrap').style.display = 'none';
+  document.getElementById('err-box').style.display = 'none';
+  document.getElementById('btn-dl').style.display = 'none';
+  parsedData = null;
+
+  const fd = new FormData();
+  fd.append('file', f);
+
+  try {
+    const r = await fetch('/parse', {method:'POST', body:fd});
+    const data = await r.json();
+    document.getElementById('spinner').style.display = 'none';
+
+    if (data.error) { showError(data.error); return; }
+
+    parsedData = data;
+    renderTable(data);
+
+  } catch(e) {
+    document.getElementById('spinner').style.display = 'none';
+    showError('Ошибка соединения: ' + e.message);
+  }
+}
+
+function showError(msg) {
+  const b = document.getElementById('err-box');
+  b.textContent = msg; b.style.display = 'block';
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('result-body');
+  tbody.innerHTML = '';
+
+  let totBez=0, totNds=0, totTot=0;
+
+  data.items.forEach((it, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="c">${i+1}</td>
+      <td>${escH(it.name)}</td>
+      <td class="c">${it.qty}</td>
+      <td class="r">${fmt(it.price)}</td>
+      <td class="r">−${fmt(it.disc)}</td>
+      <td class="r">${fmt(it.price_d)}</td>
+      <td class="r">${fmt(it.kal)}</td>
+      <td class="r">${fmt(it.summa)}</td>
+      <td class="r">${fmt(it.nds)}</td>
+      <td class="r">${fmt(it.itogo)}</td>
+    `;
+    tbody.appendChild(tr);
+    totBez += it.summa; totNds += it.nds; totTot += it.itogo;
+  });
+
+  // Итого строка
+  const tr = document.createElement('tr');
+  tr.className = 'total-row';
+  tr.innerHTML = `<td colspan="7" style="text-align:right;padding-right:8px">ИТОГО:</td>
+    <td class="r">${fmt(totBez)}</td>
+    <td class="r">${fmt(totNds)}</td>
+    <td class="r">${fmt(totTot)}</td>`;
+  tbody.appendChild(tr);
+
+  // Сводка
+  const s = document.getElementById('summary');
+  s.innerHTML = `
+    <div class="sum-item"><strong>${data.items.length}</strong>позиций</div>
+    <div class="sum-item"><strong>${fmt(totBez)} ₽</strong>без НДС</div>
+    <div class="sum-item"><strong>${fmt(totNds)} ₽</strong>НДС 22%</div>
+    <div class="sum-item"><strong>${fmt(totTot)} ₽</strong>итого с НДС</div>
+  `;
+
+  // АА-список
+  const aaBox  = document.getElementById('aa-box');
+  const aaList = document.getElementById('aa-list');
+  aaList.innerHTML = '';
+  if (data.aa && data.aa.length) {
+    data.aa.forEach(x => {
+      const li = document.createElement('li');
+      li.textContent = `${x.name} × ${x.qty} шт.`;
+      aaList.appendChild(li);
+    });
+    aaBox.style.display = 'block';
+  } else {
+    aaBox.style.display = 'none';
+  }
+
+  document.getElementById('result-wrap').style.display = 'block';
+  document.getElementById('btn-dl').style.display = data.items.length ? 'block' : 'none';
+}
+
+// ── Скачать Word ─────────────────────────────────────────────────────────────
+async function downloadKP() {
+  if (!parsedData) return;
+
+  const payload = {
+    items:     parsedData.items,
+    aa:        parsedData.aa || [],
+    customer:  document.getElementById('customer').value,
+    order_num: document.getElementById('order_num').value,
+    manager:   document.getElementById('manager').value,
+  };
+
+  const r = await fetch('/generate', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+
+  if (!r.ok) { const d = await r.json(); showError(d.error); return; }
+
+  const blob = await r.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const fn   = payload.order_num ? `КП_${payload.order_num}.docx` : 'КП_ВЕГАЛИБР.docx';
+  a.href = url; a.download = fn; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escH(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
