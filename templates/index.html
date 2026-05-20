@@ -122,10 +122,16 @@ td.c{text-align:center}
         <h2>Загрузка заявки</h2>
         <div id="drop-zone">
           <div class="icon">📂</div>
-          <p>Перетащи сюда <strong>.xlsx</strong><br>или нажми для выбора</p>
+          <p>Перетащи сюда <strong>.xlsx</strong></p>
         </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
+        <button onclick="document.getElementById('file-input').click()" style="
+          width:100%;padding:9px;margin-bottom:8px;
+          background:#f0f4fa;border:1.5px solid #b0c4e0;border-radius:8px;
+          font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;">
+          📁 Выбрать файл
+        </button>
         <div id="file-name">файл не выбран</div>
-        <input type="file" id="file-input" accept=".xlsx,.xls">
         <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
           Рассчитать
         </button>
