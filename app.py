@@ -5,7 +5,7 @@ import os
 from flask import (Flask, render_template, request, session,
                    redirect, url_for, send_file, jsonify)
 from pricing import calc_item, calc_item_from_excel
-from parser import parse_zaявка
+from excel_parser import parse_zaявка
 from text_parser import parse_pdf, parse_text
 from doc_builder import build_kp
 
