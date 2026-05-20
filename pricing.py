@@ -155,8 +155,8 @@ def parse_thread_ring(name):
     else:
         return None
 
-    # Ищем М<диаметр>×<шаг> или М<диаметр>x<шаг>
-    m = re.search(r'м\s*(\d+[,.]?\d*)\s*[×x×]\s*(\d+[,.]?\d*)', nl)
+    # Ищем М<диаметр>×<шаг> или М<диаметр>x<шаг> (латинская x, кириллическая х, знак ×)
+    m = re.search(r'м\s*(\d+[,.]?\d*)\s*[×xхХ]\s*(\d+[,.]?\d*)', nl)
     if not m:
         return None
 
@@ -183,8 +183,8 @@ def parse_caliber(name):
         return None
     nl = name.lower().strip()
 
-    # Резьбовое кольцо/пробка (содержит М<число>×<шаг>)
-    if re.search(r'м\s*\d+[,.]?\d*\s*[×x×]', nl):
+    # Резьбовое кольцо/пробка (содержит М<число>×<шаг>, любой разделитель)
+    if re.search(r'м\s*\d+[,.]?\d*\s*[×xхХ]', nl):
         r = parse_thread_ring(name)
         if r:
             kind, diam, pitch, side = r
