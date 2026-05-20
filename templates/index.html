@@ -133,18 +133,49 @@ td.c{text-align:center}
 
       <div class="card" style="margin-top:16px;padding:16px">
         <h2>Загрузка заявки</h2>
-        <div id="drop-zone">
-          <div class="icon">📂</div>
-          <p>Перетащи сюда <strong>.xlsx</strong></p>
+
+        <!-- Вкладки -->
+        <div style="display:flex;gap:6px;margin-bottom:12px">
+          <button onclick="switchTab('file')" id="tab-file"
+            style="flex:1;padding:7px;border-radius:7px;border:1.5px solid #1f5c9e;
+                   background:#1f5c9e;color:#fff;font-size:.82rem;font-weight:600;cursor:pointer">
+            📁 Файл
+          </button>
+          <button onclick="switchTab('text')" id="tab-text"
+            style="flex:1;padding:7px;border-radius:7px;border:1.5px solid #b0c4e0;
+                   background:#f0f4fa;color:#1f5c9e;font-size:.82rem;font-weight:600;cursor:pointer">
+            📋 Текст
+          </button>
         </div>
-        <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none">
-        <button onclick="document.getElementById('file-input').click()" style="
-          width:100%;padding:9px;margin-bottom:8px;
-          background:#f0f4fa;border:1.5px solid #b0c4e0;border-radius:8px;
-          font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;">
-          📁 Выбрать файл
-        </button>
-        <div id="file-name">файл не выбран</div>
+
+        <!-- Панель файла -->
+        <div id="panel-file">
+          <div id="drop-zone">
+            <div class="icon">📂</div>
+            <p>Перетащи сюда <strong>.xlsx</strong> или <strong>.pdf</strong></p>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.pdf" style="display:none">
+          <button onclick="document.getElementById('file-input').click()" style="
+            width:100%;padding:9px;margin-bottom:8px;
+            background:#f0f4fa;border:1.5px solid #b0c4e0;border-radius:8px;
+            font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;">
+            📁 Выбрать файл
+          </button>
+          <div id="file-name">файл не выбран</div>
+        </div>
+
+        <!-- Панель текста -->
+        <div id="panel-text" style="display:none">
+          <textarea id="raw-text" placeholder="Вставь текст из Word, письма или таблицы...
+Пример:
+Калибр-скоба 6,48 h11 ПР-НЕ ГОСТ 18360-93    12
+Калибр-пробка гладкая 2,0 H14 ПР-НЕ    6"
+            style="width:100%;height:140px;padding:10px;
+                   border:1.5px solid #b0c4e0;border-radius:8px;
+                   font-size:.78rem;resize:vertical;outline:none;
+                   font-family:monospace"></textarea>
+        </div>
+
         <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
           Рассчитать
         </button>
@@ -199,6 +230,33 @@ td.c{text-align:center}
 
 <script>
 let parsedData = null;
+let activeTab = 'file';
+
+// ── Вкладки ──────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('panel-file').style.display = tab === 'file' ? '' : 'none';
+  document.getElementById('panel-text').style.display = tab === 'text' ? '' : 'none';
+  const tf = document.getElementById('tab-file');
+  const tt = document.getElementById('tab-text');
+  if (tab === 'file') {
+    tf.style.background='#1f5c9e'; tf.style.color='#fff'; tf.style.borderColor='#1f5c9e';
+    tt.style.background='#f0f4fa'; tt.style.color='#1f5c9e'; tt.style.borderColor='#b0c4e0';
+  } else {
+    tt.style.background='#1f5c9e'; tt.style.color='#fff'; tt.style.borderColor='#1f5c9e';
+    tf.style.background='#f0f4fa'; tf.style.color='#1f5c9e'; tf.style.borderColor='#b0c4e0';
+  }
+  document.getElementById('btn-parse').disabled =
+    tab === 'file' ? !fi.fileObj : !document.getElementById('raw-text').value.trim();
+}
+
+// Текстовая область — разблокирует кнопку
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('raw-text').addEventListener('input', function() {
+    if (activeTab === 'text')
+      document.getElementById('btn-parse').disabled = !this.value.trim();
+  });
+});
 
 // ── Drag & drop ──────────────────────────────────────────────────────────────
 const dz   = document.getElementById('drop-zone');
@@ -227,9 +285,6 @@ function fmt(v) {
 }
 
 async function parseFile() {
-  const f = fi.fileObj || fi.files[0];
-  if (!f) return;
-
   document.getElementById('spinner').style.display = 'block';
   document.getElementById('result-wrap').style.display = 'none';
   document.getElementById('err-box').style.display = 'none';
@@ -237,8 +292,17 @@ async function parseFile() {
   parsedData = null;
 
   const fd = new FormData();
-  fd.append('file', f);
   fd.append('include_kalib', document.getElementById('include_kalib').checked ? 'true' : 'false');
+
+  if (activeTab === 'text') {
+    const txt = document.getElementById('raw-text').value.trim();
+    if (!txt) { showError('Вставьте текст'); return; }
+    fd.append('raw_text', txt);
+  } else {
+    const f = fi.fileObj || fi.files[0];
+    if (!f) return;
+    fd.append('file', f);
+  }
 
   try {
     const r = await fetch('/parse', {method:'POST', body:fd});

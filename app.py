@@ -6,6 +6,7 @@ from flask import (Flask, render_template, request, session,
                    redirect, url_for, send_file, jsonify)
 from pricing import calc_item, calc_item_from_excel
 from parser import parse_zaявка
+from text_parser import parse_pdf, parse_text
 from doc_builder import build_kp
 
 app = Flask(__name__)
@@ -42,15 +43,26 @@ def parse():
     if not session.get("auth"):
         return jsonify({"error": "not_auth"}), 403
 
-    f = request.files.get("file")
-    if not f:
-        return jsonify({"error": "Файл не загружен"}), 400
-
     include_kalib = request.form.get("include_kalib", "true").lower() == "true"
 
-    items_raw, err = parse_zaявка(f.stream)
-    if err:
-        return jsonify({"error": err}), 400
+    # Текст из буфера обмена?
+    raw_text = request.form.get("raw_text", "").strip()
+    if raw_text:
+        items_raw, err = parse_text(raw_text)
+        if err:
+            return jsonify({"error": err}), 400
+    else:
+        f = request.files.get("file")
+        if not f:
+            return jsonify({"error": "Загрузите файл или вставьте текст"}), 400
+
+        fname = (f.filename or '').lower()
+        if fname.endswith('.pdf'):
+            items_raw, err = parse_pdf(f.stream)
+        else:
+            items_raw, err = parse_zaявка(f.stream)
+        if err:
+            return jsonify({"error": err}), 400
 
     result = []
     aa = []
