@@ -44,6 +44,11 @@ def parse():
         return jsonify({"error": "not_auth"}), 403
 
     include_kalib = request.form.get("include_kalib", "true").lower() == "true"
+    try:
+        discount = float(request.form.get("discount", "20")) / 100.0
+        discount = max(0.0, min(0.99, discount))
+    except ValueError:
+        discount = 0.20
 
     # Текст из буфера обмена?
     raw_text = request.form.get("raw_text", "").strip()
@@ -68,7 +73,7 @@ def parse():
     aa = []
     for name, qty, price_excel, kalib_excel in items_raw:
         # 1) Пробуем наш прайс
-        row = calc_item(name, qty, include_kalib=include_kalib)
+        row = calc_item(name, qty, include_kalib=include_kalib, discount=discount)
         if row:
             result.append(row)
             continue
@@ -77,7 +82,7 @@ def parse():
         if price_excel is not None:
             kal = (kalib_excel or 0.0) if include_kalib else 0.0
             row = calc_item_from_excel(name, qty, price_excel, kal,
-                                       include_kalib=include_kalib)
+                                       include_kalib=include_kalib, discount=discount)
             row['source'] = 'excel'   # пометка что цена из заявки
             result.append(row)
             continue

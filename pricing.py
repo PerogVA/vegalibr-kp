@@ -206,9 +206,10 @@ def parse_caliber(name):
 
     return None
 
-def calc_item_from_excel(name, qty, base_price, kal, include_kalib=True):
-    """Расчёт по ценам из Excel. Скидка 20% на товар, калибровка без скидки."""
-    disc    = round(base_price * DISC, 2)
+def calc_item_from_excel(name, qty, base_price, kal, include_kalib=True, discount=None):
+    """Расчёт по ценам из Excel. Скидка на товар, калибровка без скидки."""
+    d = discount if discount is not None else DISC
+    disc    = round(base_price * d, 2)
     price_d = round(base_price - disc, 2)
     kal_use = kal if (include_kalib and kal is not None) else 0.0
     summa   = round(qty * (price_d + kal_use), 2)
@@ -227,7 +228,7 @@ def calc_item_from_excel(name, qty, base_price, kal, include_kalib=True):
         'itogo':   itogo,
     }
 
-def calc_item(name, qty, include_kalib=True):
+def calc_item(name, qty, include_kalib=True, discount=None):
     """
     Считает одну позицию.
     Возвращает dict или None (если цена не определена).
@@ -255,7 +256,8 @@ def calc_item(name, qty, include_kalib=True):
         kal_full = kalib_price(kind, size, name)
 
     kal = kal_full if include_kalib else 0.0
-    disc    = round(price * DISC, 2)
+    d = discount if discount is not None else DISC
+    disc    = round(price * d, 2)
     price_d = round(price - disc, 2)
     summa   = round(qty * (price_d + kal), 2)
     nds_s   = round(summa * NDS, 2)

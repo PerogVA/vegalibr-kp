@@ -293,6 +293,7 @@ async function parseFile() {
 
   const fd = new FormData();
   fd.append('include_kalib', document.getElementById('include_kalib').checked ? 'true' : 'false');
+  fd.append('discount', document.getElementById('discount').value || '20');
 
   if (activeTab === 'text') {
     const txt = document.getElementById('raw-text').value.trim();
