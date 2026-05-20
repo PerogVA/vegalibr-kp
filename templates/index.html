@@ -118,6 +118,19 @@ td.c{text-align:center}
         <input type="text" id="manager" value="Перог Вадим Александрович">
       </div>
 
+      <div class="field">
+        <label>Скидка на товар, %</label>
+        <input type="number" id="discount" value="20" min="0" max="99" style="width:80px">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;margin-bottom:4px">
+        <input type="checkbox" id="include_kalib" checked
+               style="width:18px;height:18px;cursor:pointer;accent-color:#1f5c9e">
+        <label for="include_kalib" style="font-size:.88rem;font-weight:600;color:#444;cursor:pointer;margin:0">
+          Включить калибровку / поверку
+        </label>
+      </div>
+
       <div class="card" style="margin-top:16px;padding:16px">
         <h2>Загрузка заявки</h2>
         <div id="drop-zone">
@@ -225,6 +238,7 @@ async function parseFile() {
 
   const fd = new FormData();
   fd.append('file', f);
+  fd.append('include_kalib', document.getElementById('include_kalib').checked ? 'true' : 'false');
 
   try {
     const r = await fetch('/parse', {method:'POST', body:fd});

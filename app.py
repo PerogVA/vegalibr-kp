@@ -4,14 +4,13 @@
 import os
 from flask import (Flask, render_template, request, session,
                    redirect, url_for, send_file, jsonify)
-from pricing import calc_item
-from parser import parse_zaявka
+from pricing import calc_item, calc_item_from_excel
+from parser import parse_zaявка
 from doc_builder import build_kp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vegalibr-secret-2025")
 
-# Пароль задаётся через переменную окружения (на Railway: Settings → Variables)
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "vegalibr2025")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -47,18 +46,32 @@ def parse():
     if not f:
         return jsonify({"error": "Файл не загружен"}), 400
 
-    items_raw, err = parse_zaявka(f.stream)
+    include_kalib = request.form.get("include_kalib", "true").lower() == "true"
+
+    items_raw, err = parse_zaявка(f.stream)
     if err:
         return jsonify({"error": err}), 400
 
     result = []
     aa = []
-    for name, qty in items_raw:
-        row = calc_item(name, qty)
+    for name, qty, price_excel, kalib_excel in items_raw:
+        # 1) Пробуем наш прайс
+        row = calc_item(name, qty, include_kalib=include_kalib)
         if row:
             result.append(row)
-        else:
-            aa.append({"name": name, "qty": qty})
+            continue
+
+        # 2) Если в Excel есть цена — используем её
+        if price_excel is not None:
+            kal = (kalib_excel or 0.0) if include_kalib else 0.0
+            row = calc_item_from_excel(name, qty, price_excel, kal,
+                                       include_kalib=include_kalib)
+            row['source'] = 'excel'   # пометка что цена из заявки
+            result.append(row)
+            continue
+
+        # 3) Не удалось — в АА
+        aa.append({"name": name, "qty": qty})
 
     return jsonify({"items": result, "aa": aa})
 
@@ -70,16 +83,17 @@ def generate():
         return jsonify({"error": "not_auth"}), 403
 
     data = request.get_json(force=True)
-    items  = data.get("items", [])
-    aa     = [(x["name"], x["qty"]) for x in data.get("aa", [])]
-    customer   = data.get("customer", "")
-    order_num  = data.get("order_num", "")
-    manager    = data.get("manager", "Перог Вадим Александрович")
+    items     = data.get("items", [])
+    aa        = [(x["name"], x["qty"]) for x in data.get("aa", [])]
+    customer  = data.get("customer", "")
+    order_num = data.get("order_num", "")
+    manager   = data.get("manager", "Перог Вадим Александрович")
 
     if not items:
         return jsonify({"error": "Нет позиций для КП"}), 400
 
-    buf = build_kp(items, aa, customer=customer, order_num=order_num, manager=manager)
+    buf = build_kp(items, aa, customer=customer,
+                   order_num=order_num, manager=manager)
 
     fname = f"КП_{order_num}.docx" if order_num else "КП_ВЕГАЛИБР.docx"
     return send_file(
