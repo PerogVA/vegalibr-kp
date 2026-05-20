@@ -105,12 +105,17 @@ def generate():
     customer  = data.get("customer", "")
     order_num = data.get("order_num", "")
     manager   = data.get("manager", "Перог Вадим Александрович")
+    try:
+        discount = float(data.get("discount", 20)) / 100.0
+        discount = max(0.0, min(0.99, discount))
+    except (ValueError, TypeError):
+        discount = 0.20
 
     if not items:
         return jsonify({"error": "Нет позиций для КП"}), 400
 
     buf = build_kp(items, aa, customer=customer,
-                   order_num=order_num, manager=manager)
+                   order_num=order_num, manager=manager, discount=discount)
 
     fname = f"КП_{order_num}.docx" if order_num else "КП_ВЕГАЛИБР.docx"
     return send_file(

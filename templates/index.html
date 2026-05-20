@@ -397,6 +397,7 @@ async function downloadKP() {
     customer:  document.getElementById('customer').value,
     order_num: document.getElementById('order_num').value,
     manager:   document.getElementById('manager').value,
+    discount:  parseFloat(document.getElementById('discount').value || '20'),
   };
 
   const r = await fetch('/generate', {

@@ -187,7 +187,8 @@ def build_kp(items, aa_list, customer="", order_num="", manager="Перог Ва
     # ── Таблица позиций ───────────────────────────────────────────────────────
     doc.add_paragraph().paragraph_format.space_before = Pt(3)
 
-    HEADERS = ["№","Наименование","Ед.","Кол-во","Цена\nбез НДС","Скидка\n20%",
+    disc_pct = int(round(discount * 100))
+    HEADERS = ["№","Наименование","Ед.","Кол-во","Цена\nбез НДС",f"Скидка\n{disc_pct}%",
                "Цена со\nскидкой","Кали-\nбровка","Сумма\nбез НДС","НДС\n22%","Итого\nс НДС"]
     COL_W   = [0.6, 5.5, 0.65, 0.8, 1.5, 1.3, 1.5, 1.3, 1.5, 1.25, 1.5]
 
@@ -250,7 +251,7 @@ def build_kp(items, aa_list, customer="", order_num="", manager="Перог Ва
         _cell_para(mv, val, bold=True, size=sz, color=color, align=WD_ALIGN_PARAGRAPH.RIGHT)
         mv.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
-    _summary("в т.ч. скидка 20% на изделия:", f"– {_fmt(total_disc)}",
+    _summary(f"в т.ч. скидка {disc_pct}% на изделия:", f"– {_fmt(total_disc)}",
              bg=RGBColor(0xFF,0xF0,0xD0), color=RGBColor(0xCC,0x44,0x00))
     _summary("в т.ч. калибровка:", _fmt(round(total_kal,2)))
     _summary("Итого без НДС:", _fmt(total_bez))
