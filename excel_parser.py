@@ -5,7 +5,7 @@ import re
 import openpyxl
 
 
-def parse_zaявka(filepath_or_stream):
+def parse_excel(filepath_or_stream):
     """
     Читает Excel-заявку. Возвращает (items, error).
     items = список (name, qty, price_no_kal, kalib)

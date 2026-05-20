@@ -5,7 +5,7 @@ import os
 from flask import (Flask, render_template, request, session,
                    redirect, url_for, send_file, jsonify)
 from pricing import calc_item, calc_item_from_excel
-from excel_parser import parse_zaявка
+from excel_parser import parse_excel
 from text_parser import parse_pdf, parse_text
 from doc_builder import build_kp
 
@@ -65,7 +65,7 @@ def parse():
         if fname.endswith('.pdf'):
             items_raw, err = parse_pdf(f.stream)
         else:
-            items_raw, err = parse_zaявка(f.stream)
+            items_raw, err = parse_excel(f.stream)
         if err:
             return jsonify({"error": err}), 400
 
