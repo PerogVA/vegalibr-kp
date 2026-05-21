@@ -49,9 +49,14 @@ def skoba_price(size, name=""):
     return None
 
 # ── Пробки гладкие (комплект ПР-НЕ, 10+ шт) ────────────────────────────────
+_PROBA_NOT_IN_PRICE = {1.3}   # нестандарт, нет в прайсе → АА
+
 def proba_price(size):
     if size < 1.0:   return None
-    if size < 2.0:    return 5400.0  # все размеры 1–1,9 мм → 5400
+    if size < 2.0:
+        if round(size, 2) in _PROBA_NOT_IN_PRICE:
+            return None   # нет в прайсе → АА
+        return 5400.0
     if size <= 14.0:  return 4111.80
     if size <= 18.0:  return 4527.60
     if size <= 24.0:  return 4923.60
