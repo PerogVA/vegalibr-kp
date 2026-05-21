@@ -277,6 +277,7 @@ _RING_BASE = {
     (56.0, 4.0 ): 12892,
     (56.0, 3.0 ): 12551,
     (56.0, 2.0 ): 12892,
+    (56.0, 1.5 ): 27181,   # счёт 1324: 28461 − 1280 (kalib >50мм)
     (57.0, 0.5 ): 32500,   # нестандарт
     (60.0, 5.5 ): 20911,
     (60.0, 4.0 ): 16038,
@@ -457,7 +458,7 @@ def _kalib_thread(kind, diam, is_combo):
     elif kind == 'пробка_резьбовая':
         if d > 50:
             return 1280
-        return 1760 if is_combo else 880
+        return 880  # ≤50мм: одна поверка на комплект ПР-НЕ
     return 0
 
 
@@ -578,9 +579,12 @@ _INCH_KALIB = 2180   # поверка трубных / дюймовых кали
 # Значение: (ring_pr, ring_ne, ring_combo, plug_pr, plug_ne, plug_combo)
 # None = нет в прайсе → АА
 _UNIFIED = {
-    '1 1/16-14': (None,  None,  18200, None, None, None),   # UNF-3А комплект
-    '1 1/8-12':  (11700, 9100,  None,  None, None, None),   # UNF 2A
-    '1 7/8-16':  (16900, 13000, None,  None, None, None),   # UN  2A
+    # (ring_pr, ring_ne, ring_combo, plug_pr, plug_ne, plug_combo)
+    # Цены LIST (без скидки, без поверки)
+    '1 1/16-14': (None,  None,  20025, None, None, None),   # UNF-3А комплект
+    '1 1/8-12':  (11900, 8650,  None,  None, None, None),   # UNF 2A
+    '1 7/8-16':  (18400, 13525, None,  None, None, None),   # UN  2A
+    '1 7/8-12':  (13836, 13836, None,  None, None, None),   # UN  (счёт 1355)
 }
 
 # ── STUB ACME ─────────────────────────────────────────────────────────────────
