@@ -619,7 +619,7 @@ def parse_trapezoidal(name):
     nl = name.lower()
     if 'tr' not in nl and 'трапец' not in nl:
         return None
-    m = re.search(r'tr\s*(\d+(?:[.,]\d+)?)\s*[x×хХ]\s*(\d+(?:[.,]\d+)?)', nl, re.I)
+    m = re.search(r'tr\s*(\d+(?:[.,]\d+)?)\s*[x×хХ*]\s*(\d+(?:[.,]\d+)?)', nl, re.I)
     if not m:
         return None
     diam  = float(m.group(1).replace(',', '.'))
@@ -1068,6 +1068,11 @@ def calc_item(name, qty, include_kalib=True, discount=None):
         if price is None:
             return None
         kal_full = kalib_price(kind, size, name)
+
+    # Левая резьба (LH) — наценка +30% для метрики и трапеции (STUB ACME уже в таблице)
+    if kind in ('кольцо_резьбовое', 'пробка_резьбовая', 'tr_пробка', 'tr_кольцо'):
+        if 'LH' in name.upper():
+            price = round(price * 1.30, 2)
 
     kal = kal_full if include_kalib else 0.0
     d = discount if discount is not None else DISC
