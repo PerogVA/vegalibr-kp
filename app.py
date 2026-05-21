@@ -168,6 +168,8 @@ def _clean_name(name):
     name = re.sub(r'^Пробка\s+резьбовая\b', 'Калибр-пробка', name, flags=re.IGNORECASE)
     name = re.sub(r'^Пробка\b', 'Калибр-пробка', name, flags=re.IGNORECASE)
     name = re.sub(r'^Скоба\b', 'Калибр-скоба', name, flags=re.IGNORECASE)
+    # Символ ⌀ для скобы гладкой: «Калибр-скоба 1,2» → «Калибр-скоба ⌀1,2»
+    name = re.sub(r'(Калибр-скоба)\s+(?!⌀)(\d)', r'\1 ⌀\2', name, flags=re.IGNORECASE)
     # «Калибр М...» без типа — определяем по квалитету
     name = _infer_caliber_type(name)
     return ' '.join(name.split())
