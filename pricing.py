@@ -573,6 +573,25 @@ _BSW = {
 
 _INCH_KALIB = 2180   # поверка трубных / дюймовых калибров, руб./шт.
 
+# ── UN / UNF / UNC (Unified Inch Threads) ────────────────────────────────────
+# Ключ: 'nominal-TPI'  напр. '1 1/8-12', '1 7/8-16'
+# Значение: (ring_pr, ring_ne, ring_combo, plug_pr, plug_ne, plug_combo)
+# None = нет в прайсе → АА
+_UNIFIED = {
+    '1 1/16-14': (None,  None,  18200, None, None, None),   # UNF-3А комплект
+    '1 1/8-12':  (11700, 9100,  None,  None, None, None),   # UNF 2A
+    '1 7/8-16':  (16900, 13000, None,  None, None, None),   # UN  2A
+}
+
+# ── STUB ACME ─────────────────────────────────────────────────────────────────
+# Ключ: 'diam_inch-TPI'  (запятую → точку),  LH-исполнение: + '-LH'
+# Значение: (plug_pr, plug_ne, ring_pr, ring_ne)
+_STUB_ACME = {
+    '4.224-8':    (104000, 91000,  None,   None  ),
+    '4.377-8':    (None,   None,   195000, 182000),
+    '4.750-8-LH': (None,   None,   208000, 195000),
+}
+
 
 def _parse_inch_size(name_upper):
     """Извлекает нормализованный дюймовый размер из имени."""
@@ -634,6 +653,92 @@ def parse_inch_thread(name):
         key = size
 
     return ('inch', tcode, is_plug, key, side)
+
+
+def parse_unified_thread(name):
+    """
+    Парсит UN / UNF / UNC / UNO / UNS резьбовые калибры (дюймовые Unified).
+    Форматы: '1 1/8-12UNF 2A', '1 7/8-16UN 2A', '1 1/16-14UNF-3А ПР и НЕ'
+    Возвращает ('unified', is_plug, key, side, is_combo) или None.
+    key: 'nominal-TPI'  напр. '1 1/8-12'
+    """
+    if not name:
+        return None
+    nu = name.upper()
+    nl = name.lower()
+
+    # Должно содержать UN (UNF, UNC, UN, UNO, UNS, UNR …)
+    # Без \b перед UN — т.к. встречается в форме "12UNF" (цифра + буква)
+    if not re.search(r'UNF|UNC|UNO|UNS|UNR|UN-|UN\b', nu):
+        return None
+    # Исключаем NPT/NPSM (тоже содержат N)
+    if 'NPT' in nu or 'NPSM' in nu:
+        return None
+
+    is_plug  = 'пробк' in nl or 'plug' in nl
+    is_ring  = 'кольц' in nl or 'ring' in nl
+    if is_ring:
+        is_plug = False
+
+    # Комплект ПР и НЕ
+    is_combo = bool(re.search(r'\bПР\s+[ИI]\s+НЕ\b', name, re.IGNORECASE))
+
+    # Сторона
+    if re.search(r'\bНЕ\b', name) and not is_combo:
+        side = 'не'
+    else:
+        side = 'пр'
+
+    # Извлекаем nominal-TPI: '1 1/8-12' из '1 1/8-12UNF'
+    m = re.search(r'(\d+\s+\d+/\d+|\d+/\d+|\d+)\s*-\s*(\d+)\s*UN', nu)
+    if not m:
+        return None
+
+    nominal = m.group(1).strip()
+    tpi     = m.group(2)
+    key     = f'{nominal}-{tpi}'
+
+    return ('unified', is_plug, key, side, is_combo)
+
+
+def parse_stub_acme(name):
+    """
+    Парсит STUB ACME калибры.
+    Форматы: '4,377-8 STUB ACME-2G ПР', '4,750-8 STUB ACME-2G LH НЕ'
+    Возвращает ('stub_acme', is_plug, key, side) или None.
+    key: 'diam_inch-TPI' напр. '4.377-8'; левая резьба: '4.750-8-LH'
+    """
+    if not name:
+        return None
+    nu = name.upper()
+    nl = name.lower()
+
+    if 'ACME' not in nu:
+        return None
+
+    is_plug = 'пробк' in nl or 'plug' in nl
+    if 'кольц' in nl or 'ring' in nl:
+        is_plug = False
+
+    is_combo = bool(re.search(r'\bПР\s+[ИI]\s+НЕ\b', name, re.IGNORECASE))
+    if re.search(r'\bНЕ\b', name) and not is_combo:
+        side = 'не'
+    else:
+        side = 'пр'
+
+    # Диаметр и TPI: '4,377-8' или '4.377-8'
+    m = re.search(r'(\d+[,\.]\d+)-(\d+)', name)
+    if not m:
+        return None
+
+    diam = m.group(1).replace(',', '.')
+    tpi  = m.group(2)
+    key  = f'{diam}-{tpi}'
+
+    if 'LH' in nu:   # левая резьба
+        key += '-LH'
+
+    return ('stub_acme', is_plug, key, side, is_combo)
 
 
 # ── Конические резьбовые калибры ГОСТ 6485-69 ────────────────────────────────
@@ -713,6 +818,16 @@ def parse_caliber(name):
     inch = parse_inch_thread(name)
     if inch:
         return inch
+
+    # Unified inch threads (UN / UNF / UNC …)
+    unified = parse_unified_thread(name)
+    if unified:
+        return unified
+
+    # STUB ACME
+    stub = parse_stub_acme(name)
+    if stub:
+        return stub
 
     # Резьбовое кольцо/пробка (с шагом или без)
     if re.search(r'м\s*\d+[,.]?\d*\s*[×xхХ]', nl):
@@ -818,6 +933,40 @@ def calc_item(name, qty, include_kalib=True, discount=None):
             price = float(entry[2] if side == 'не' else entry[1])
         else:                   # NPT/NPSM/PT: (plug, ring)
             price = float(entry[1])
+        if price is None:
+            return None
+        kal_full = _INCH_KALIB
+
+    # ── Unified inch (UN / UNF / UNC) ──────────────────────────────────────
+    elif kind == 'unified':
+        _, is_plug, key, side, is_combo = parsed
+        entry = _UNIFIED.get(key)
+        if entry is None:
+            return None
+        ring_pr, ring_ne, ring_combo, plug_pr, plug_ne, plug_combo = entry
+        if is_combo:
+            price = plug_combo if is_plug else ring_combo
+        elif is_plug:
+            price = plug_pr if side == 'пр' else plug_ne
+        else:
+            price = ring_pr if side == 'пр' else ring_ne
+        if price is None:
+            return None
+        kal_full = _INCH_KALIB
+
+    # ── STUB ACME ───────────────────────────────────────────────────────────
+    elif kind == 'stub_acme':
+        _, is_plug, key, side, is_combo = parsed
+        entry = _STUB_ACME.get(key)
+        if entry is None:
+            return None
+        plug_pr, plug_ne, ring_pr, ring_ne = entry
+        if is_combo:
+            price = (plug_pr or 0) + (plug_ne or 0) if is_plug else (ring_pr or 0) + (ring_ne or 0)
+        elif is_plug:
+            price = plug_pr if side == 'пр' else plug_ne
+        else:
+            price = ring_pr if side == 'пр' else ring_ne
         if price is None:
             return None
         kal_full = _INCH_KALIB
