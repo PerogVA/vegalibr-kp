@@ -324,7 +324,7 @@ dz.addEventListener('drop', e => {
 });
 fi.addEventListener('change', () => { if (fi.files.length) setFile(fi.files[0]); });
 
-const _DRAWING_EXTS = ['png','jpg','jpeg','bmp','tif','tiff'];
+const _DRAWING_EXTS = ['png','jpg','jpeg','bmp','tif','tiff','pdf'];
 
 function setFile(f) {
   const ext = (f.name.split('.').pop() || '').toLowerCase();

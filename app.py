@@ -498,9 +498,12 @@ def drawing_doc():
         img_name   = filename,
     )
 
-    # Очищаем имя файла от символов запрещённых в Windows
-    raw_title = data['title'] or "чертёж"
-    safe_name = re.sub(r'[\\/:*?"<>|]', '', raw_title).strip().lstrip('_.- ')[:80] or "чертёж"
+    # Имя файла = название чертежа из штампа; если Gemini не прочитал — берём имя загруженного файла
+    fn_no_ext = re.sub(r'\.[^.]+$', '', filename)  # "чертёж.pdf" → "чертёж"
+    title_for_name = data['title'] or fn_no_ext
+    number_for_name = data['number'] or ""
+    raw_title = f"{title_for_name} {number_for_name}".strip() if number_for_name else title_for_name
+    safe_name = re.sub(r'[\\/:*?"<>|]', '', raw_title).strip().lstrip('_.- ')[:80] or fn_no_ext or "чертёж"
     dl_name   = f"{safe_name}.docx"
 
     import urllib.parse
