@@ -186,16 +186,10 @@ td.c{text-align:center}
         <div id="panel-file">
           <div id="drop-zone">
             <div class="icon">📂</div>
-            <p>Перетащи сюда <strong>.xlsx</strong> или <strong>.pdf</strong></p>
+            <p>Перетащи сюда <strong>.xlsx</strong>, <strong>.pdf</strong>, <strong>.docx</strong></p>
+            <p style="font-size:.78rem;color:#999;margin-top:4px">или изображение чертежа для анализа</p>
           </div>
-          <input type="file" id="file-input" accept=".xlsx,.xls,.pdf" style="display:none">
-          <label for="file-input" style="
-            display:block;width:100%;padding:9px;margin-bottom:8px;box-sizing:border-box;
-            background:#f0f4fa;border:1.5px solid #b0c4e0;border-radius:8px;
-            font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;
-            text-align:center;user-select:none;">
-            📁 Выбрать файл
-          </label>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.pdf,.docx,.png,.jpg,.jpeg,.tif,.tiff,.bmp" style="display:none">
           <div id="file-name">файл не выбран</div>
         </div>
 
@@ -205,7 +199,7 @@ td.c{text-align:center}
 Пример:
 Калибр-скоба 6,48 h11 ПР-НЕ ГОСТ 18360-93    12
 Калибр-пробка гладкая 2,0 H14 ПР-НЕ    6"
-            style="width:100%;height:180px;padding:10px;
+            style="width:100%;height:240px;padding:10px;
                    border:1.5px solid #b0c4e0;border-radius:8px;
                    font-size:.82rem;resize:vertical;outline:none;
                    font-family:monospace"></textarea>
@@ -214,13 +208,6 @@ td.c{text-align:center}
         <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
           Рассчитать
         </button>
-
-        <button class="btn-parse" id="btn-drawing"
-          onclick="document.getElementById('drawing-input').click()"
-          style="margin-top:8px;background:#fff;color:#1f5c9e;border:2px solid #1f5c9e;">
-          📐 Чертёж → Запрос
-        </button>
-        <input type="file" id="drawing-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" style="display:none" onchange="uploadDrawing(this)">
       </div>
     </div>
   </div>
@@ -286,8 +273,9 @@ td.c{text-align:center}
 </div>
 
 <script>
-let parsedData = null;
-let activeTab  = 'file';
+let parsedData    = null;
+let activeTab     = 'file';
+let inputFileName = '';   // имя загруженного файла (без расширения)
 
 // ── Вкладки ──────────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -329,10 +317,16 @@ dz.addEventListener('drop', e => {
 });
 fi.addEventListener('change', () => { if (fi.files.length) setFile(fi.files[0]); });
 
+const _DRAWING_EXTS = ['png','jpg','jpeg','bmp','tif','tiff'];
+
 function setFile(f) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  fi.fileObj   = f;
+  fi.isDrawing = _DRAWING_EXTS.includes(ext);
+  inputFileName = f.name.replace(/\.[^.]+$/, '');
   fnEl.textContent = f.name;
-  fi.fileObj = f;
-  btnP.disabled = false;
+  btnP.disabled    = false;
+  btnP.textContent = fi.isDrawing ? '📐 Анализировать чертёж' : 'Рассчитать';
 }
 
 // ── Форматирование ────────────────────────────────────────────────────────────
@@ -345,7 +339,14 @@ function escH(s) {
 
 // ── Парсинг файла / текста ────────────────────────────────────────────────────
 async function parseFile() {
+  // Чертёж → отдельный маршрут
+  if (activeTab === 'file') {
+    const f = fi.fileObj || fi.files[0];
+    if (f && fi.isDrawing) { await doDrawingAnalysis(f); return; }
+  }
+
   document.getElementById('spinner').style.display    = 'block';
+  document.getElementById('spinner').textContent      = 'Обработка файла…';
   document.getElementById('result-wrap').style.display = 'none';
   document.getElementById('err-box').style.display    = 'none';
   document.getElementById('btn-dl').style.display     = 'none';
@@ -589,20 +590,23 @@ async function downloadKP() {
   const blob = await r.blob();
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  const fn   = payload.order_num ? `КП_${payload.order_num}.docx` : 'КП_ВЕГАЛИБР.docx';
+  const fn = payload.order_num
+    ? `КП_${payload.order_num}.docx`
+    : inputFileName
+      ? `КП_${inputFileName}.docx`
+      : 'КП_ВЕГАЛИБР.docx';
   a.href = url; a.download = fn; a.click();
   URL.revokeObjectURL(url);
 }
 
-// ── Загрузка чертежа → Word-документ ─────────────────────────────────────────
-async function uploadDrawing(input) {
-  const file = input.files[0];
-  if (!file) return;
-  input.value = '';
-
-  const btn = document.getElementById('btn-drawing');
-  btn.textContent = '⏳ Анализирую...';
-  btn.disabled = true;
+// ── Анализ чертежа → Word-документ ───────────────────────────────────────────
+async function doDrawingAnalysis(file) {
+  const spin = document.getElementById('spinner');
+  spin.style.display  = 'block';
+  spin.textContent    = 'Анализирую чертёж…';
+  document.getElementById('err-box').style.display = 'none';
+  btnP.disabled    = true;
+  btnP.textContent = '⏳ Анализирую…';
 
   const fd = new FormData();
   fd.append('file', file);
@@ -614,8 +618,9 @@ async function uploadDrawing(input) {
       const text = await r.text();
       let msg = text;
       try { msg = JSON.parse(text).error || text; } catch(_) {}
-      alert('Ошибка: ' + msg.slice(0, 300));
-      btn.textContent = '📐 Чертёж → Запрос'; btn.disabled = false;
+      showError('Ошибка: ' + msg.slice(0, 300));
+      spin.style.display = 'none';
+      btnP.disabled = false; btnP.textContent = '📐 Анализировать чертёж';
       return;
     }
 
@@ -623,7 +628,6 @@ async function uploadDrawing(input) {
     const blob = await r.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    // Имя файла из заголовка ответа
     const cd   = r.headers.get('Content-Disposition') || '';
     const fnm  = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
     a.download = fnm ? decodeURIComponent(fnm[1].replace(/"/g,'')) : 'Запрос.docx';
@@ -631,10 +635,12 @@ async function uploadDrawing(input) {
     URL.revokeObjectURL(url);
 
   } catch(e) {
-    alert('Ошибка сети: ' + e.message);
+    showError('Ошибка сети: ' + e.message);
   }
 
-  btn.textContent = '📐 Чертёж → Запрос'; btn.disabled = false;
+  spin.style.display = 'none';
+  btnP.disabled    = false;
+  btnP.textContent = '📐 Анализировать чертёж';
 }
 
 </script>

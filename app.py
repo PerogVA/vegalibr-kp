@@ -66,17 +66,25 @@ def parse():
             return jsonify({"error": "Загрузите файл или вставьте текст"}), 400
 
         fname = (f.filename or '').lower()
-        # Картинки — направляем к чертёжной кнопке
-        if any(fname.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
-            return jsonify({"error": "Это изображение — используйте кнопку «📐 Чертёж → Запрос» для загрузки чертежей"}), 400
         file_buf = BytesIO(f.read())
         try:
             if fname.endswith('.pdf'):
                 items_raw, err = parse_pdf(file_buf)
+            elif fname.endswith('.docx'):
+                # Извлекаем текст из Word-файла
+                from docx import Document as _DocxDoc
+                _d = _DocxDoc(file_buf)
+                _lines = [p.text for p in _d.paragraphs]
+                for _t in _d.tables:
+                    for _r in _t.rows:
+                        _lines.append('\t'.join(c.text for c in _r.cells))
+                items_raw, err = parse_text('\n'.join(_lines))
+            elif any(fname.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
+                return jsonify({"error": "Перетащи изображение в поле загрузки и нажми «📐 Анализировать чертёж»"}), 400
             else:
                 items_raw, err = parse_excel(file_buf)
         except Exception as e:
-            return jsonify({"error": f"Не удалось открыть файл: {e}. Для чертежей используйте кнопку «📐 Чертёж → Запрос»"}), 400
+            return jsonify({"error": f"Не удалось открыть файл: {e}"}), 400
         if err:
             return jsonify({"error": err}), 400
 
@@ -473,24 +481,54 @@ def _build_drawing_doc(title: str, number: str, items,
     # ── Изображение чертежа ───────────────────────────────────────────────────
     if img_bytes:
         try:
-            from docx.shared import Inches
             import io as _io
             fname_low = img_name.lower()
-            # Конвертируем в PNG если нужно
+            img_buf = None
+
             if fname_low.endswith(('.jpg', '.jpeg', '.png')):
                 img_buf = _io.BytesIO(img_bytes)
-            else:
-                from PIL import Image as _Img
-                im = _Img.open(_io.BytesIO(img_bytes)).convert("RGB")
-                img_buf = _io.BytesIO()
-                im.save(img_buf, format="PNG")
+            elif fname_low.endswith('.pdf'):
+                try:
+                    import fitz as _fitz
+                    _pdoc = _fitz.open(stream=img_bytes, filetype='pdf')
+                    _pix  = _pdoc[0].get_pixmap(matrix=_fitz.Matrix(1.5, 1.5))
+                    img_buf = _io.BytesIO(_pix.tobytes('png'))
+                    _pdoc.close()
+                except Exception:
+                    img_buf = None
+            else:   # tif, bmp и др.
+                try:
+                    from PIL import Image as _Img
+                    _imo = _Img.open(_io.BytesIO(img_bytes)).convert("RGB")
+                    img_buf = _io.BytesIO()
+                    _imo.save(img_buf, format="PNG")
+                    img_buf.seek(0)
+                except Exception:
+                    img_buf = None
+
+            if img_buf is not None:
+                # Определяем размеры с сохранением пропорций
+                kwargs = {"width": Cm(17)}   # fallback
+                try:
+                    from PIL import Image as _Pil
+                    img_buf.seek(0)
+                    _im2 = _Pil.open(img_buf)
+                    w_px, h_px = _im2.size
+                    max_w_cm, max_h_cm = 17.0, 20.0
+                    # Если пропорция шире — ограничиваем по ширине, иначе по высоте
+                    if w_px * max_h_cm > h_px * max_w_cm:
+                        kwargs = {"width": Cm(max_w_cm)}
+                    else:
+                        kwargs = {"height": Cm(max_h_cm)}
+                except Exception:
+                    pass
+
+                p_img = doc.add_paragraph()
+                p_img.paragraph_format.space_before = Pt(6)
+                p_img.paragraph_format.space_after  = Pt(6)
+                run_img = p_img.add_run()
                 img_buf.seek(0)
-            # Вставляем на всю ширину страницы
-            p_img = doc.add_paragraph()
-            p_img.paragraph_format.space_before = Pt(6)
-            p_img.paragraph_format.space_after  = Pt(6)
-            run_img = p_img.add_run()
-            run_img.add_picture(img_buf, width=Cm(17))
+                run_img.add_picture(img_buf, **kwargs)
         except Exception:
             pass   # если не удалось — просто пропускаем картинку
 
