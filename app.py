@@ -41,6 +41,99 @@ def logout():
     return redirect(url_for("login"))
 
 # ─────────────────────────────────────────────────────────────────────────────
+def _parse_docx(file_buf):
+    """
+    Умный парсер .docx для заявок с ГОСТ-таблицами.
+    Понимает формат ячеек:
+      'Калибр 8211-0023 6g\\nГОСТ 17763-72\\n(Калибр-кольцо\\nМ4×0,7-6g ПР)'
+    Возвращает (items, error) как parse_text().
+    """
+    from docx import Document as _DocxDoc
+
+    doc = _DocxDoc(file_buf)
+    items = []
+    seen: set = set()
+
+    # ── Ключевые слова (из text_parser) ────────────────────────────────────────
+    _KW = ['калибр', 'скоба', 'пробка', 'кольцо']
+
+    def _has_caliber(s):
+        sl = s.lower()
+        return any(k in sl for k in _KW)
+
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [c.text.replace('\xa0', ' ') for c in row.cells]
+
+            name = None
+            qty  = None
+
+            # ── 1. Калибр в скобках: (Калибр-кольцо\nМ4×0,7-6g ПР) ────────────
+            for cell in cells:
+                m = re.search(
+                    r'\(([^)]*(?:калибр|кольцо|пробка|скоба)[^)]*)\)',
+                    cell, re.IGNORECASE | re.DOTALL
+                )
+                if m:
+                    raw = m.group(1).replace('\n', ' ')
+                    raw = re.sub(r'\s+', ' ', raw).strip()
+                    # Убираем "гладк." (означает форму ручки, не тип калибра)
+                    raw = re.sub(r'\bгладк\.?\b\s*', '', raw, flags=re.IGNORECASE)
+                    # "ПР / НЕ" → "ПР-НЕ"
+                    raw = re.sub(r'ПР\s*/\s*НЕ', 'ПР-НЕ', raw, flags=re.IGNORECASE)
+                    raw = re.sub(r'\s+', ' ', raw).strip()
+                    if raw:
+                        name = raw
+                        break
+
+            # ── 2. Нет скобок — берём ячейку с калибром напрямую ───────────────
+            if not name:
+                for cell in cells:
+                    clean = re.sub(r'\s+', ' ', cell.replace('\n', ' ')).strip()
+                    if _has_caliber(clean) and len(clean) > 8:
+                        name = clean
+                        break
+
+            # ── 3. Количество: ячейка сразу после "шт." / "шт" / "к-т" ─────────
+            for ci, cell in enumerate(cells):
+                if cell.strip().lower().rstrip('.') in ('шт', 'штук', 'компл', 'к-т', 'кт'):
+                    if ci + 1 < len(cells):
+                        try:
+                            v = int(cells[ci + 1].strip())
+                            if 1 <= v <= 9999:
+                                qty = v
+                        except ValueError:
+                            pass
+                    break
+
+            # Fallback: первое короткое число (≤4 цифры) начиная с 3-й ячейки
+            if qty is None:
+                for cell in cells[2:]:
+                    c = cell.strip()
+                    if re.fullmatch(r'\d{1,4}', c):
+                        v = int(c)
+                        if 1 <= v <= 9999:
+                            qty = v
+                            break
+
+            if qty is None:
+                qty = 1
+
+            if name:
+                key = name.lower()
+                if key not in seen:
+                    seen.add(key)
+                    items.append((name, qty, None, None))
+
+    # ── Нет таблиц — парсим параграфы как обычный текст ───────────────────────
+    if not items:
+        text = '\n'.join(p.text for p in doc.paragraphs)
+        return parse_text(text)
+
+    return items, None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 @app.route("/parse", methods=["POST"])
 def parse():
     """Парсит Excel-файл, возвращает JSON со списком позиций."""
@@ -71,14 +164,7 @@ def parse():
             if fname.endswith('.pdf'):
                 items_raw, err = parse_pdf(file_buf)
             elif fname.endswith('.docx'):
-                # Извлекаем текст из Word-файла
-                from docx import Document as _DocxDoc
-                _d = _DocxDoc(file_buf)
-                _lines = [p.text for p in _d.paragraphs]
-                for _t in _d.tables:
-                    for _r in _t.rows:
-                        _lines.append('\t'.join(c.text for c in _r.cells))
-                items_raw, err = parse_text('\n'.join(_lines))
+                items_raw, err = _parse_docx(file_buf)
             elif any(fname.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
                 return jsonify({"error": "Перетащи изображение в поле загрузки и нажми «📐 Анализировать чертёж»"}), 400
             else:
