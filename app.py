@@ -11,6 +11,7 @@ from excel_parser import parse_excel
 from text_parser import parse_pdf, parse_text
 from doc_builder import build_kp
 from stock import lookup as stock_lookup
+from drawing_parser import parse_drawing
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vegalibr-secret-2025")
@@ -345,6 +346,27 @@ def calc_single():
         return jsonify({"items": rows})
 
     return jsonify({"aa": {"name": name, "qty": qty}})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/parse-drawing", methods=["POST"])
+def parse_drawing_route():
+    """Принимает чертёж (PDF/PNG/JPG), возвращает список найденных калибров."""
+    if not session.get("auth"):
+        return jsonify({"error": "not_auth"}), 403
+
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "Файл не загружен"}), 400
+
+    file_bytes = f.read()
+    filename   = f.filename or ""
+
+    suggestions, err = parse_drawing(file_bytes, filename)
+    if err and not suggestions:
+        return jsonify({"error": err}), 400
+
+    return jsonify({"suggestions": [{"name": n, "hint": h} for n, h in suggestions]})
 
 
 # ─────────────────────────────────────────────────────────────────────────────

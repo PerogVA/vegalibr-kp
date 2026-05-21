@@ -252,6 +252,10 @@ td.c{text-align:center}
           <button class="btn-add-toggle" id="btn-add-toggle" onclick="toggleAddForm()">
             + Добавить позицию вручную
           </button>
+          <button class="btn-add-toggle" id="btn-drawing" onclick="document.getElementById('drawing-input').click()" style="margin-left:8px;background:#e8f0fa;color:#1f5c9e;border:1.5px solid #1f5c9e;">
+            📐 Загрузить чертёж
+          </button>
+          <input type="file" id="drawing-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" style="display:none" onchange="uploadDrawing(this)">
           <div class="add-row-form" id="add-row-form">
             <div class="row">
               <input type="text" id="add-name" placeholder="Наименование калибра (напр. Кольцо резьбовое М10×1,5 6g НЕ)">
@@ -585,6 +589,132 @@ async function downloadKP() {
   const fn   = payload.order_num ? `КП_${payload.order_num}.docx` : 'КП_ВЕГАЛИБР.docx';
   a.href = url; a.download = fn; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Загрузка чертежа ──────────────────────────────────────────────────────────
+async function uploadDrawing(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const btn = document.getElementById('btn-drawing');
+  btn.textContent = '⏳ Распознаю...';
+  btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  let data;
+  try {
+    const r = await fetch('/parse-drawing', { method: 'POST', body: fd });
+    data = await r.json();
+  } catch(e) {
+    alert('Ошибка сети: ' + e.message);
+    btn.textContent = '📐 Загрузить чертёж'; btn.disabled = false;
+    return;
+  }
+
+  btn.textContent = '📐 Загрузить чертёж'; btn.disabled = false;
+
+  if (data.error) { alert('Ошибка: ' + data.error); return; }
+
+  const sug = data.suggestions || [];
+  if (!sug.length) { alert('Калибры на чертеже не найдены.'); return; }
+
+  showDrawingModal(sug);
+}
+
+function showDrawingModal(suggestions) {
+  // Удаляем старый модальный если есть
+  document.getElementById('drawing-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'drawing-modal';
+  overlay.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;
+    display:flex;align-items:center;justify-content:center`;
+
+  const box = document.createElement('div');
+  box.style.cssText = `background:#fff;border-radius:10px;padding:24px 28px;min-width:420px;
+    max-width:680px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.25)`;
+
+  let html = `<h3 style="margin:0 0 14px;color:#1f5c9e;font-size:1rem">
+    📐 Найдено на чертеже — выберите позиции для добавления</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:.83rem">
+    <thead><tr style="background:#e8f0fa">
+      <th style="padding:6px 8px;text-align:left">Наименование</th>
+      <th style="padding:6px 8px;text-align:left;color:#666">Источник</th>
+      <th style="padding:6px 4px">Кол-во</th>
+      <th style="padding:6px 8px"></th>
+    </tr></thead><tbody>`;
+
+  suggestions.forEach((s, i) => {
+    html += `<tr style="border-bottom:1px solid #eee">
+      <td style="padding:6px 8px">${escH(s.name)}</td>
+      <td style="padding:6px 8px;color:#888;font-size:.78rem">${escH(s.hint)}</td>
+      <td style="padding:6px 4px;text-align:center">
+        <input type="number" value="1" min="1" max="999" style="width:48px;text-align:center;
+          border:1px solid #ccc;border-radius:4px;padding:2px 4px" id="dqty_${i}">
+      </td>
+      <td style="padding:6px 8px">
+        <button onclick="addFromDrawing(${i},'${escH(s.name).replace(/'/g,"&#39;")}')"
+          style="background:#1f5c9e;color:#fff;border:none;border-radius:5px;
+          padding:4px 10px;cursor:pointer;font-size:.8rem">Добавить</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="addAllFromDrawing(${suggestions.length})"
+        style="background:#1f5c9e;color:#fff;border:none;border-radius:6px;
+        padding:7px 16px;cursor:pointer;font-weight:600">Добавить все</button>
+      <button onclick="document.getElementById('drawing-modal').remove()"
+        style="background:#eee;border:none;border-radius:6px;padding:7px 16px;cursor:pointer">
+        Закрыть</button>
+    </div>`;
+
+  box.innerHTML = html;
+  overlay.appendChild(box);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  // Сохраняем suggestions глобально
+  window._drawingSuggestions = suggestions;
+}
+
+async function addFromDrawing(idx, name) {
+  const qty = parseInt(document.getElementById('dqty_' + idx)?.value || 1);
+  const disc = parseFloat(document.getElementById('discount').value || 0);
+  const kalib = document.getElementById('kalib-toggle')?.checked ?? true;
+
+  const r = await fetch('/calc-single', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({name, qty, include_kalib: kalib, discount: disc})
+  });
+  const data = await r.json();
+
+  if (data.items) {
+    data.items.forEach(it => appendRow(it));
+    recalcTotals();
+  } else if (data.aa) {
+    appendAA(data.aa);
+  } else if (data.error) {
+    alert('Не удалось добавить: ' + data.error);
+    return;
+  }
+
+  // Отмечаем строку зелёным
+  const btn = document.querySelector(`#drawing-modal button[onclick*="addFromDrawing(${idx},"]`);
+  if (btn) { btn.textContent = '✓'; btn.style.background = '#2a9d5c'; btn.disabled = true; }
+}
+
+async function addAllFromDrawing(count) {
+  for (let i = 0; i < count; i++) {
+    const s = window._drawingSuggestions[i];
+    if (!s) continue;
+    await addFromDrawing(i, s.name);
+  }
 }
 </script>
 </body>
