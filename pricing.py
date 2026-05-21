@@ -152,10 +152,10 @@ def kalib_price(kind, size, name):
     elif kind == "установочное_кольцо":
         return 0   # поверка не включается
     elif kind == "скоба":
-        m = re.search(r'[a-zA-Z](\d+)', name.split('ГОСТ')[0])
-        qual = int(m.group(1)) if m else 11
-        if size <= 18.0:
-            return 970 if qual <= 10 else 850
+        # Граница по размеру (не по квалитету):
+        # < 2 мм (листовые по ГОСТ 18358-93) → 970; ≥ 2 мм → 850
+        if size < 2.0:
+            return 970
         if size <= 60.0:
             return 850
     return 0
