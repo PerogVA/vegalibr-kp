@@ -412,13 +412,21 @@ def drawing_doc():
         img_name   = filename,
     )
 
-    safe_name = (data['title'] or "чертёж").replace("/", "-").replace("\\", "-").strip()[:80]
-    return send_file(
+    # Очищаем имя файла от символов запрещённых в Windows
+    raw_title = data['title'] or "чертёж"
+    safe_name = re.sub(r'[\\/:*?"<>|]', '', raw_title).strip().lstrip('_.- ')[:80] or "чертёж"
+    dl_name   = f"{safe_name}.docx"
+
+    import urllib.parse
+    resp = send_file(
         buf,
         as_attachment=True,
-        download_name=f"{safe_name}.docx",
+        download_name=dl_name,
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
+    # Дополнительный заголовок — JS читает его напрямую (обход проблем с кириллицей в Content-Disposition)
+    resp.headers['X-Download-Filename'] = urllib.parse.quote(dl_name, safe='')
+    return resp
 
 
 def _build_drawing_doc(title: str, number: str, items,
@@ -507,25 +515,37 @@ def _build_drawing_doc(title: str, number: str, items,
                     img_buf = None
 
             if img_buf is not None:
-                # Определяем размеры с сохранением пропорций
-                kwargs = {"width": Cm(17)}   # fallback
+                # Вычисляем реальный размер изображения с учётом DPI
+                # Не увеличиваем, если изображение меньше страницы
+                kwargs = {"width": Cm(14)}   # безопасный fallback
                 try:
                     from PIL import Image as _Pil
                     img_buf.seek(0)
                     _im2 = _Pil.open(img_buf)
                     w_px, h_px = _im2.size
-                    max_w_cm, max_h_cm = 17.0, 20.0
-                    # Если пропорция шире — ограничиваем по ширине, иначе по высоте
-                    if w_px * max_h_cm > h_px * max_w_cm:
-                        kwargs = {"width": Cm(max_w_cm)}
+                    _dpi = _im2.info.get('dpi', (150, 150))
+                    dpi_x = float(_dpi[0]) if _dpi[0] and _dpi[0] > 0 else 150.0
+                    dpi_y = float(_dpi[1]) if _dpi[1] and _dpi[1] > 0 else 150.0
+                    # Физический размер изображения в см
+                    nat_w = w_px / dpi_x * 2.54
+                    nat_h = h_px / dpi_y * 2.54
+                    # Ограничения страницы (не увеличиваем, только уменьшаем)
+                    max_w, max_h = 17.0, 19.0
+                    scale = min(1.0, max_w / nat_w, max_h / nat_h)
+                    fw = nat_w * scale
+                    fh = nat_h * scale
+                    # Передаём ту сторону, которая задаёт масштаб
+                    if fw / fh >= 1:
+                        kwargs = {"width": Cm(fw)}
                     else:
-                        kwargs = {"height": Cm(max_h_cm)}
+                        kwargs = {"height": Cm(fh)}
                 except Exception:
-                    pass
+                    pass   # используем fallback
 
                 p_img = doc.add_paragraph()
                 p_img.paragraph_format.space_before = Pt(6)
                 p_img.paragraph_format.space_after  = Pt(6)
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 run_img = p_img.add_run()
                 img_buf.seek(0)
                 run_img.add_picture(img_buf, **kwargs)

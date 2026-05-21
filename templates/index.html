@@ -628,9 +628,9 @@ async function doDrawingAnalysis(file) {
     const blob = await r.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    const cd   = r.headers.get('Content-Disposition') || '';
-    const fnm  = cd.match(/filename\*?=(?:UTF-8'')?([^;]+)/i);
-    a.download = fnm ? decodeURIComponent(fnm[1].replace(/"/g,'')) : 'Запрос.docx';
+    // X-Download-Filename надёжнее чем Content-Disposition для кириллицы
+    const xfn  = r.headers.get('X-Download-Filename');
+    a.download = xfn ? decodeURIComponent(xfn) : 'Запрос.docx';
     a.href = url; a.click();
     URL.revokeObjectURL(url);
 
