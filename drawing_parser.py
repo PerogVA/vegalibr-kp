@@ -299,26 +299,36 @@ def parse_drawing_pdf_ocr(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], Opti
 def parse_drawing(file_bytes: bytes, filename: str) -> Tuple[List[Tuple[str,str]], Optional[str]]:
     """
     Универсальный парсер чертежа.
-    filename используется для определения типа файла.
+    1. Если задан ANTHROPIC_API_KEY — сначала Claude Vision (умный анализ).
+    2. Иначе — текстовый PDF или OCR-регэкспы.
     Возвращает (suggestions, error_or_None).
     """
+    import os
     fname = filename.lower()
 
+    # ── Claude Vision (приоритет если есть API ключ) ──────────────────────────
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            from vision_parser import parse_drawing_vision
+            suggestions, err = parse_drawing_vision(file_bytes, filename)
+            if suggestions:
+                return suggestions, None
+            # Vision вернул пусто — fallback на регэкспы (не ошибка)
+        except Exception:
+            pass   # Если что-то сломалось — продолжаем без Vision
+
+    # ── Fallback: регэкспы ─────────────────────────────────────────────────────
     if fname.endswith('.pdf'):
-        # Сначала пробуем текст
         suggestions, err = parse_drawing_pdf_text(file_bytes)
         if err:
             return [], err
         if suggestions:
             return suggestions, None
-        # Текст пустой — пробуем OCR через PyMuPDF
         suggestions, err = parse_drawing_pdf_ocr(file_bytes)
         if err:
-            # PyMuPDF не установлен или другая ошибка — сообщаем
             return [], f'PDF не содержит текста. Для OCR-сканов установите pymupdf: {err}'
         return suggestions, None
 
-    # Изображения
     if any(fname.endswith(ext) for ext in ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp')):
         return parse_drawing_image(file_bytes)
 
