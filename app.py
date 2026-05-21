@@ -397,9 +397,11 @@ def drawing_doc():
         return jsonify({"error": data['error']}), 400
 
     buf = _build_drawing_doc(
-        title   = data['title']  or filename,
-        number  = data['number'] or "",
-        items   = data['items'],
+        title      = data['title']  or filename,
+        number     = data['number'] or "",
+        items      = data['items'],
+        img_bytes  = file_bytes,
+        img_name   = filename,
     )
 
     safe_name = (data['title'] or "чертёж").replace("/", "-").replace("\\", "-")[:60]
@@ -411,7 +413,8 @@ def drawing_doc():
     )
 
 
-def _build_drawing_doc(title: str, number: str, items) -> BytesIO:
+def _build_drawing_doc(title: str, number: str, items,
+                       img_bytes: bytes = None, img_name: str = "") -> BytesIO:
     """Собирает Word-документ с запросом на изготовление калибров."""
     from docx import Document
     from docx.shared import Pt, Cm, RGBColor
@@ -466,6 +469,30 @@ def _build_drawing_doc(title: str, number: str, items) -> BytesIO:
         para(f"Обозначение:  {number}", size=11, space_before=0, space_after=10)
     else:
         para("", space_before=0, space_after=4)
+
+    # ── Изображение чертежа ───────────────────────────────────────────────────
+    if img_bytes:
+        try:
+            from docx.shared import Inches
+            import io as _io
+            fname_low = img_name.lower()
+            # Конвертируем в PNG если нужно
+            if fname_low.endswith(('.jpg', '.jpeg', '.png')):
+                img_buf = _io.BytesIO(img_bytes)
+            else:
+                from PIL import Image as _Img
+                im = _Img.open(_io.BytesIO(img_bytes)).convert("RGB")
+                img_buf = _io.BytesIO()
+                im.save(img_buf, format="PNG")
+                img_buf.seek(0)
+            # Вставляем на всю ширину страницы
+            p_img = doc.add_paragraph()
+            p_img.paragraph_format.space_before = Pt(6)
+            p_img.paragraph_format.space_after  = Pt(6)
+            run_img = p_img.add_run()
+            run_img.add_picture(img_buf, width=Cm(17))
+        except Exception:
+            pass   # если не удалось — просто пропускаем картинку
 
     # ── Список калибров ────────────────────────────────────────────────────────
     para("Необходимые калибры:", bold=True, size=11, space_before=4, space_after=6)
