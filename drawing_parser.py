@@ -18,7 +18,7 @@
 
 import re
 import io
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # ---------------------------------------------------------------------------
 # Стандартный шаг ГОСТ 24705 (для восстановления шага если не указан)
@@ -33,7 +33,7 @@ _STD_PITCH = {
     52: 5.0, 56: 5.5, 60: 5.5, 64: 6.0, 68: 6.0,
 }
 
-def _std_pitch(diam: float) -> float | None:
+def _std_pitch(diam: float) -> Optional[float]:
     return _STD_PITCH.get(int(diam)) or _STD_PITCH.get(diam)
 
 
@@ -177,7 +177,7 @@ def _parse_text(text: str) -> List[Tuple[str, str]]:
 # PDF (текстовый)
 # ---------------------------------------------------------------------------
 
-def parse_drawing_pdf_text(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], str | None]:
+def parse_drawing_pdf_text(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], Optional[str]]:
     """
     Извлекает текст из PDF через pdfplumber, ищет обозначения.
     Возвращает (suggestions, error_or_None).
@@ -229,7 +229,7 @@ def _ocr_image(img) -> str:
     return ''
 
 
-def parse_drawing_image(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], str | None]:
+def parse_drawing_image(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], Optional[str]]:
     """
     OCR изображения (PNG/JPG/TIFF/BMP).
     Возвращает (suggestions, error_or_None).
@@ -252,7 +252,7 @@ def parse_drawing_image(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], str | 
     return _parse_text(text), None
 
 
-def parse_drawing_pdf_ocr(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], str | None]:
+def parse_drawing_pdf_ocr(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], Optional[str]]:
     """
     Конвертирует PDF в изображения и OCR-ит каждую страницу.
     Требует PyMuPDF (pymupdf).
@@ -296,7 +296,7 @@ def parse_drawing_pdf_ocr(file_bytes: bytes) -> Tuple[List[Tuple[str,str]], str 
 # Главная точка входа
 # ---------------------------------------------------------------------------
 
-def parse_drawing(file_bytes: bytes, filename: str) -> Tuple[List[Tuple[str,str]], str | None]:
+def parse_drawing(file_bytes: bytes, filename: str) -> Tuple[List[Tuple[str,str]], Optional[str]]:
     """
     Универсальный парсер чертежа.
     filename используется для определения типа файла.
