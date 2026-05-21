@@ -66,11 +66,17 @@ def parse():
             return jsonify({"error": "Загрузите файл или вставьте текст"}), 400
 
         fname = (f.filename or '').lower()
+        # Картинки — направляем к чертёжной кнопке
+        if any(fname.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
+            return jsonify({"error": "Это изображение — используйте кнопку «📐 Чертёж → Запрос» для загрузки чертежей"}), 400
         file_buf = BytesIO(f.read())
-        if fname.endswith('.pdf'):
-            items_raw, err = parse_pdf(file_buf)
-        else:
-            items_raw, err = parse_excel(file_buf)
+        try:
+            if fname.endswith('.pdf'):
+                items_raw, err = parse_pdf(file_buf)
+            else:
+                items_raw, err = parse_excel(file_buf)
+        except Exception as e:
+            return jsonify({"error": f"Не удалось открыть файл: {e}. Для чертежей используйте кнопку «📐 Чертёж → Запрос»"}), 400
         if err:
             return jsonify({"error": err}), 400
 
