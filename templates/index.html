@@ -52,6 +52,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4fa;color:#333;min-h
   border:none;border-radius:8px;font-size:.95rem;font-weight:600;cursor:pointer;transition:.2s}
 .btn-parse:hover{background:#174e8a}
 .btn-parse:disabled{background:#aaa;cursor:not-allowed}
+.btn-clear{width:100%;padding:9px;background:#fff;color:#888;
+  border:1.5px solid #ccc;border-radius:8px;font-size:.88rem;font-weight:500;
+  cursor:pointer;transition:.2s;margin-top:8px}
+.btn-clear:hover{background:#f5f5f5;border-color:#aaa;color:#555}
 .btn-dl{width:100%;padding:12px;background:#16a34a;color:#fff;
   border:none;border-radius:8px;font-size:1rem;font-weight:700;
   cursor:pointer;transition:.2s;margin-top:10px;display:none}
@@ -207,6 +211,9 @@ td.c{text-align:center}
 
         <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
           Рассчитать
+        </button>
+        <button class="btn-clear" id="btn-clear" onclick="clearAll()">
+          Очистить
         </button>
       </div>
     </div>
@@ -378,6 +385,36 @@ async function parseFile() {
     showError('Ошибка соединения: ' + e.message);
   }
 }
+
+function clearAll() {
+  // Сброс файла
+  fi.value = '';
+  fi.fileObj = null;
+  fi.isDrawing = false;
+  fnEl.textContent = 'файл не выбран';
+  inputFileName = '';
+  // Сброс текстовой панели
+  const ta = document.getElementById('raw-text');
+  if (ta) ta.value = '';
+  // Сброс кнопки
+  btnP.disabled    = true;
+  btnP.textContent = 'Рассчитать';
+  // Сброс результатов
+  parsedData = null;
+  document.getElementById('result-wrap').style.display = 'none';
+  document.getElementById('err-box').style.display    = 'none';
+  document.getElementById('spinner').style.display    = 'none';
+  document.getElementById('btn-dl').style.display     = 'none';
+  const aaBox = document.getElementById('aa-box');
+  if (aaBox) aaBox.style.display = 'none';
+  document.getElementById('summary').textContent = '';
+  const tbody = document.querySelector('#result-table tbody');
+  if (tbody) tbody.innerHTML = '';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'R') { e.preventDefault(); clearAll(); }
+});
 
 function showError(msg) {
   const b = document.getElementById('err-box');

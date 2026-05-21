@@ -829,11 +829,13 @@ def parse_conical(name):
     if not name:
         return None
     nl = name.lower()
-    if 'конус' not in nl:
+    # Принимаем и «конус», и «Rc», и «Р-Р» как признак конического калибра
+    if 'конус' not in nl and not re.search(r'\bRc\b|\bР-Р\b', name, re.I):
         return None
+    # Нормализуем все варианты кавычки/дюймового знака к ASCII "
+    name_n = name.replace('″', '"').replace('”', '"').replace('′', "'")
     # Размер: 1/8", 1/4", 3/8", 1/2", 3/4", 1", 1 1/4", 1 1/2", 2"
-    # Паттерн: целое[пробел дробь] | дробь  — перед кавычкой
-    m = re.search(r'(\d+\s+\d+/\d+|\d+/\d+|\d+)\s*"', name)
+    m = re.search(r'(\d+\s+\d+/\d+|\d+/\d+|\d+)\s*"', name_n)
     if not m:
         return None
     size = m.group(1).strip() + '"'    # например '1/4"' или '1 1/4"'
