@@ -16,7 +16,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 
 _GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent?key={key}"
+    "gemini-1.5-flash:generateContent?key={key}"
 )
 
 _PROMPT = """Ты — эксперт по метрологии. Проанализируй технический чертёж.
