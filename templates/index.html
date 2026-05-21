@@ -214,6 +214,13 @@ td.c{text-align:center}
         <button class="btn-parse" id="btn-parse" onclick="parseFile()" disabled>
           Рассчитать
         </button>
+
+        <button class="btn-parse" id="btn-drawing"
+          onclick="document.getElementById('drawing-input').click()"
+          style="margin-top:8px;background:#fff;color:#1f5c9e;border:2px solid #1f5c9e;">
+          📐 Чертёж → Запрос
+        </button>
+        <input type="file" id="drawing-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" style="display:none" onchange="uploadDrawing(this)">
       </div>
     </div>
   </div>
@@ -252,10 +259,6 @@ td.c{text-align:center}
           <button class="btn-add-toggle" id="btn-add-toggle" onclick="toggleAddForm()">
             + Добавить позицию вручную
           </button>
-          <button class="btn-add-toggle" id="btn-drawing" onclick="document.getElementById('drawing-input').click()" style="margin-left:8px;background:#e8f0fa;color:#1f5c9e;border:1.5px solid #1f5c9e;">
-            📐 Чертёж → Запрос
-          </button>
-          <input type="file" id="drawing-input" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp" style="display:none" onchange="uploadDrawing(this)">
           <div class="add-row-form" id="add-row-form">
             <div class="row">
               <input type="text" id="add-name" placeholder="Наименование калибра (напр. Кольцо резьбовое М10×1,5 6g НЕ)">
