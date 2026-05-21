@@ -306,8 +306,8 @@ def parse_drawing(file_bytes: bytes, filename: str) -> Tuple[List[Tuple[str,str]
     import os
     fname = filename.lower()
 
-    # ── Claude Vision (приоритет если есть API ключ) ──────────────────────────
-    if os.environ.get("ANTHROPIC_API_KEY"):
+    # ── Gemini Vision (приоритет если есть API ключ) ──────────────────────────
+    if os.environ.get("GOOGLE_API_KEY"):
         try:
             from vision_parser import parse_drawing_vision
             suggestions, err = parse_drawing_vision(file_bytes, filename)
