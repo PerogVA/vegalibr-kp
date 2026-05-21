@@ -154,9 +154,11 @@ def parse_excel(filepath_or_stream):
                     not re.search(r'\b(ПР|НЕ)\b', name.upper()):
                 name = f"{name} {side_val}"
 
-        # Убираем ГОСТ и артикулы из любого варианта имени
+        # Убираем ГОСТ, артикулы и "×Nшт" из имени
+        # ("×Nшт" — шаблонное кол-во в ячейке; реальное кол-во берём из колонки Кол-во)
         name = re.sub(r'\s*ГОСТ\s*\d+[\.\-–]\d+', '', name, flags=re.I)
         name = re.sub(r'\b\d{3,}[\-–]\d{3,}[\-–]?\w*\b', '', name)
+        name = re.sub(r'[-×х]\s*\d+\s*шт\.?', '', name, flags=re.I)
         name = ' '.join(name.split())
         if not name or name.isdigit():
             continue
