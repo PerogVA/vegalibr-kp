@@ -370,6 +370,128 @@ def parse_drawing_route():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+@app.route("/drawing-doc", methods=["POST"])
+def drawing_doc():
+    """Принимает чертёж → анализирует → возвращает Word-документ с запросом."""
+    if not session.get("auth"):
+        return jsonify({"error": "not_auth"}), 403
+
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "Файл не загружен"}), 400
+
+    file_bytes = f.read()
+    filename   = f.filename or "чертёж"
+
+    from vision_parser import analyze_drawing
+    data = analyze_drawing(file_bytes, filename)
+
+    if data['error'] and not data['items'] and not data['title']:
+        return jsonify({"error": data['error']}), 400
+
+    buf = _build_drawing_doc(
+        title   = data['title']  or filename,
+        number  = data['number'] or "",
+        items   = data['items'],
+    )
+
+    safe_name = (data['title'] or "чертёж").replace("/", "-").replace("\\", "-")[:60]
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=f"Запрос_{safe_name}.docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+
+def _build_drawing_doc(title: str, number: str, items) -> BytesIO:
+    """Собирает Word-документ с запросом на изготовление калибров."""
+    from docx import Document
+    from docx.shared import Pt, Cm, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    doc = Document()
+    sec = doc.sections[0]
+    sec.page_width  = Cm(21)
+    sec.page_height = Cm(29.7)
+    sec.top_margin    = Cm(2)
+    sec.bottom_margin = Cm(2)
+    sec.left_margin   = Cm(2.5)
+    sec.right_margin  = Cm(1.5)
+
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    def para(text="", bold=False, size=11, align=WD_ALIGN_PARAGRAPH.LEFT,
+             color=None, space_before=0, space_after=6):
+        p = doc.add_paragraph()
+        p.alignment = align
+        p.paragraph_format.space_before = Pt(space_before)
+        p.paragraph_format.space_after  = Pt(space_after)
+        if text:
+            r = p.add_run(text)
+            r.bold = bold
+            r.font.name  = "Arial"
+            r.font.size  = Pt(size)
+            if color:
+                r.font.color.rgb = color
+        return p
+
+    # ── Шапка ─────────────────────────────────────────────────────────────────
+    p = para("Уточнить у Александра Андреевича возможность изготовления",
+             bold=True, size=14, align=WD_ALIGN_PARAGRAPH.CENTER,
+             color=RGBColor(0xC0, 0x00, 0x00), space_before=0, space_after=16)
+
+    # Горизонтальная линия
+    from docx.oxml.ns import qn
+    from docx.oxml   import OxmlElement
+    pPr = p._p.get_or_add_pPr()
+    pb  = OxmlElement('w:pBdr')
+    bot = OxmlElement('w:bottom')
+    bot.set(qn('w:val'), 'single'); bot.set(qn('w:sz'), '6')
+    bot.set(qn('w:space'), '4');    bot.set(qn('w:color'), 'C00000')
+    pb.append(bot); pPr.append(pb)
+
+    # ── Реквизиты чертежа ──────────────────────────────────────────────────────
+    para(f"Чертёж:  {title}", bold=True, size=12, space_before=10, space_after=4)
+    if number:
+        para(f"Обозначение:  {number}", size=11, space_before=0, space_after=10)
+    else:
+        para("", space_before=0, space_after=4)
+
+    # ── Список калибров ────────────────────────────────────────────────────────
+    para("Необходимые калибры:", bold=True, size=11, space_before=4, space_after=6)
+
+    if items:
+        for i, (name, hint) in enumerate(items, 1):
+            p2 = doc.add_paragraph()
+            p2.paragraph_format.space_before = Pt(2)
+            p2.paragraph_format.space_after  = Pt(2)
+            p2.paragraph_format.left_indent  = Cm(0.5)
+            r1 = p2.add_run(f"{i}.  {name}")
+            r1.font.name = "Arial"; r1.font.size = Pt(11)
+            if hint:
+                r2 = p2.add_run(f"   ({hint})")
+                r2.font.name = "Arial"; r2.font.size = Pt(9)
+                r2.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+    else:
+        para("(калибры не определены — требуется ручной анализ)",
+             size=10, color=RGBColor(0x88, 0x88, 0x88), space_before=0, space_after=6)
+
+    # ── Подпись ────────────────────────────────────────────────────────────────
+    para("", space_before=16, space_after=0)
+    from datetime import date
+    para(f"Дата:  {date.today().strftime('%d.%m.%Y')}",
+         size=10, color=RGBColor(0x88, 0x88, 0x88), space_before=0, space_after=0)
+
+    buf = BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
