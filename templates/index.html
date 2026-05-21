@@ -67,12 +67,45 @@ table{width:100%;border-collapse:collapse;font-size:.78rem}
 thead th{background:#1f5c9e;color:#fff;padding:7px 8px;text-align:center;white-space:nowrap}
 thead th:nth-child(2){text-align:left}
 tbody tr:nth-child(even){background:#f5f9ff}
-tbody td{padding:6px 8px;border-bottom:1px solid #e8eef4;white-space:nowrap}
+tbody tr:hover{background:#e8f0fb}
+tbody td{padding:5px 7px;border-bottom:1px solid #e8eef4;white-space:nowrap}
 tbody td:nth-child(2){white-space:normal;min-width:200px}
+tfoot td{background:#d6e4f7;font-weight:700;color:#1f5c9e;padding:6px 8px}
 td.r{text-align:right}
 td.c{text-align:center}
-.total-row td{background:#d6e4f7;font-weight:700;color:#1f5c9e}
 .warn-row td{background:#fff3cd;font-size:.75rem;color:#856404}
+
+/* ── Инпут кол-ва в таблице ── */
+.qty-inp{width:52px;padding:2px 4px;border:1px solid #c0cfdf;border-radius:4px;
+  text-align:center;font-size:.78rem;font-family:inherit;background:#f8fafd}
+.qty-inp:focus{outline:none;border-color:#1f5c9e;background:#fff}
+
+/* ── Кнопка удаления строки ── */
+.del-btn{border:none;background:none;cursor:pointer;color:#cc3333;
+  font-size:1rem;padding:0 4px;line-height:1;border-radius:3px;transition:.15s}
+.del-btn:hover{background:#fde8e8;color:#991111}
+
+/* ── Склад-бейдж ── */
+.stk-ok{color:#15803d;font-weight:600;font-size:.75rem}
+.stk-no{color:#999;font-size:.75rem}
+.stk-na{color:#bbb;font-size:.75rem}
+
+/* ── Форма добавления позиции ── */
+.add-row-form{display:none;margin-top:10px;padding:12px 14px;
+  background:#f0f6ff;border:1.5px dashed #a0bcdb;border-radius:8px}
+.add-row-form .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.add-row-form input[type=text]{flex:1;min-width:200px;padding:7px 10px;
+  border:1.5px solid #c0d0e8;border-radius:6px;font-size:.85rem;outline:none}
+.add-row-form input[type=text]:focus{border-color:#1f5c9e}
+.add-row-form input[type=number]{width:68px;padding:7px 8px;
+  border:1.5px solid #c0d0e8;border-radius:6px;font-size:.85rem;outline:none;text-align:center}
+.add-row-form .btn-add{padding:7px 16px;background:#1f5c9e;color:#fff;
+  border:none;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.add-row-form .btn-add:hover{background:#174e8a}
+.btn-add-toggle{margin-top:8px;padding:6px 14px;background:#f0f6ff;
+  border:1.5px dashed #a0bcdb;border-radius:6px;font-size:.82rem;color:#1f5c9e;
+  font-weight:600;cursor:pointer;width:100%;transition:.15s}
+.btn-add-toggle:hover{background:#e4eefa}
 
 /* ── Итоги ── */
 .summary{margin-top:14px;padding:14px 18px;background:#eef4fb;
@@ -120,7 +153,7 @@ td.c{text-align:center}
 
       <div class="field">
         <label>Скидка на товар, %</label>
-        <input type="number" id="discount" value="20" min="0" max="99" style="width:80px">
+        <input type="number" id="discount" value="0" min="0" max="99" style="width:80px">
       </div>
 
       <div style="display:flex;align-items:center;gap:10px;margin-top:4px;margin-bottom:4px">
@@ -155,12 +188,13 @@ td.c{text-align:center}
             <p>Перетащи сюда <strong>.xlsx</strong> или <strong>.pdf</strong></p>
           </div>
           <input type="file" id="file-input" accept=".xlsx,.xls,.pdf" style="display:none">
-          <button onclick="document.getElementById('file-input').click()" style="
-            width:100%;padding:9px;margin-bottom:8px;
+          <label for="file-input" style="
+            display:block;width:100%;padding:9px;margin-bottom:8px;box-sizing:border-box;
             background:#f0f4fa;border:1.5px solid #b0c4e0;border-radius:8px;
-            font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;">
+            font-size:.88rem;color:#1f5c9e;font-weight:600;cursor:pointer;
+            text-align:center;user-select:none;">
             📁 Выбрать файл
-          </button>
+          </label>
           <div id="file-name">файл не выбран</div>
         </div>
 
@@ -206,10 +240,25 @@ td.c{text-align:center}
                 <th>Сумма б/НДС</th>
                 <th>НДС</th>
                 <th>Итого</th>
+                <th>Склад</th>
+                <th style="width:28px"></th>
               </tr>
             </thead>
             <tbody id="result-body"></tbody>
+            <tfoot id="result-foot"></tfoot>
           </table>
+
+          <button class="btn-add-toggle" id="btn-add-toggle" onclick="toggleAddForm()">
+            + Добавить позицию вручную
+          </button>
+          <div class="add-row-form" id="add-row-form">
+            <div class="row">
+              <input type="text" id="add-name" placeholder="Наименование калибра (напр. Кольцо резьбовое М10×1,5 6g НЕ)">
+              <input type="number" id="add-qty" value="1" min="1" max="9999" title="Кол-во">
+              <button class="btn-add" onclick="addRowManual()">Добавить</button>
+            </div>
+            <div id="add-err" style="font-size:.78rem;color:#cc3333;margin-top:6px;display:none"></div>
+          </div>
         </div>
 
         <div class="summary" id="summary"></div>
@@ -230,7 +279,7 @@ td.c{text-align:center}
 
 <script>
 let parsedData = null;
-let activeTab = 'file';
+let activeTab  = 'file';
 
 // ── Вкладки ──────────────────────────────────────────────────────────────────
 function switchTab(tab) {
@@ -250,7 +299,6 @@ function switchTab(tab) {
     tab === 'file' ? !fi.fileObj : !document.getElementById('raw-text').value.trim();
 }
 
-// Текстовая область — разблокирует кнопку
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('raw-text').addEventListener('input', function() {
     if (activeTab === 'text')
@@ -265,7 +313,7 @@ const fnEl = document.getElementById('file-name');
 const btnP = document.getElementById('btn-parse');
 
 dz.addEventListener('click', () => fi.click());
-dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('over'));
 dz.addEventListener('drop', e => {
   e.preventDefault(); dz.classList.remove('over');
@@ -279,21 +327,25 @@ function setFile(f) {
   btnP.disabled = false;
 }
 
-// ── Парсинг ──────────────────────────────────────────────────────────────────
+// ── Форматирование ────────────────────────────────────────────────────────────
 function fmt(v) {
   return Number(v).toLocaleString('ru-RU', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
+// ── Парсинг файла / текста ────────────────────────────────────────────────────
 async function parseFile() {
-  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('spinner').style.display    = 'block';
   document.getElementById('result-wrap').style.display = 'none';
-  document.getElementById('err-box').style.display = 'none';
-  document.getElementById('btn-dl').style.display = 'none';
+  document.getElementById('err-box').style.display    = 'none';
+  document.getElementById('btn-dl').style.display     = 'none';
   parsedData = null;
 
   const fd = new FormData();
   fd.append('include_kalib', document.getElementById('include_kalib').checked ? 'true' : 'false');
-  fd.append('discount', document.getElementById('discount').value || '20');
+  fd.append('discount', document.getElementById('discount').value || '0');
 
   if (activeTab === 'text') {
     const txt = document.getElementById('raw-text').value.trim();
@@ -306,15 +358,12 @@ async function parseFile() {
   }
 
   try {
-    const r = await fetch('/parse', {method:'POST', body:fd});
+    const r    = await fetch('/parse', {method:'POST', body:fd});
     const data = await r.json();
     document.getElementById('spinner').style.display = 'none';
-
     if (data.error) { showError(data.error); return; }
-
     parsedData = data;
-    renderTable(data);
-
+    renderTable();
   } catch(e) {
     document.getElementById('spinner').style.display = 'none';
     showError('Ошибка соединения: ' + e.message);
@@ -326,54 +375,88 @@ function showError(msg) {
   b.textContent = msg; b.style.display = 'block';
 }
 
-function renderTable(data) {
+// ── Склад-бейдж ───────────────────────────────────────────────────────────────
+function stockBadge(qty) {
+  if (qty === null || qty === undefined) return '<span class="stk-na">—</span>';
+  if (qty > 0)  return `<span class="stk-ok">✓ ${qty} шт.</span>`;
+  return '<span class="stk-no">нет</span>';
+}
+
+// ── Рендер таблицы ────────────────────────────────────────────────────────────
+function renderTable() {
   const tbody = document.getElementById('result-body');
   tbody.innerHTML = '';
 
-  let totBez=0, totNds=0, totTot=0;
-
-  data.items.forEach((it, i) => {
+  (parsedData.items || []).forEach((it, i) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="c">${i+1}</td>
+      <td class="c" style="color:#888;font-size:.72rem">${i+1}</td>
       <td>${escH(it.name)}</td>
-      <td class="c">${it.qty}</td>
+      <td class="c"><input class="qty-inp" type="number" value="${it.qty}" min="1" max="9999"
+          onchange="onQtyChange(this,${i})" onkeydown="if(event.key==='Enter')this.blur()"></td>
       <td class="r">${fmt(it.price)}</td>
       <td class="r">−${fmt(it.disc)}</td>
       <td class="r">${fmt(it.price_d)}</td>
       <td class="r">${fmt(it.kal)}</td>
-      <td class="r">${fmt(it.summa)}</td>
-      <td class="r">${fmt(it.nds)}</td>
-      <td class="r">${fmt(it.itogo)}</td>
+      <td class="r row-s">${fmt(it.summa)}</td>
+      <td class="r row-n">${fmt(it.nds)}</td>
+      <td class="r row-i">${fmt(it.itogo)}</td>
+      <td class="c">${stockBadge(it.stock)}</td>
+      <td class="c"><button class="del-btn" onclick="deleteRow(${i})" title="Удалить">×</button></td>
     `;
     tbody.appendChild(tr);
-    totBez += it.summa; totNds += it.nds; totTot += it.itogo;
   });
 
-  // Итого строка
+  renderFoot();
+  renderAA();
+  renderSummary();
+
+  document.getElementById('result-wrap').style.display = 'block';
+  document.getElementById('btn-dl').style.display =
+    (parsedData.items || []).length ? 'block' : 'none';
+  document.getElementById('btn-add-toggle').style.display = 'block';
+}
+
+function renderFoot() {
+  const foot = document.getElementById('result-foot');
+  foot.innerHTML = '';
+  const items = parsedData.items || [];
+  const totBez = items.reduce((s,it) => s + it.summa, 0);
+  const totNds = items.reduce((s,it) => s + it.nds,   0);
+  const totTot = items.reduce((s,it) => s + it.itogo,  0);
+
   const tr = document.createElement('tr');
-  tr.className = 'total-row';
-  tr.innerHTML = `<td colspan="7" style="text-align:right;padding-right:8px">ИТОГО:</td>
+  tr.innerHTML = `
+    <td colspan="7" style="text-align:right;padding-right:8px">ИТОГО:</td>
     <td class="r">${fmt(totBez)}</td>
     <td class="r">${fmt(totNds)}</td>
-    <td class="r">${fmt(totTot)}</td>`;
-  tbody.appendChild(tr);
+    <td class="r">${fmt(totTot)}</td>
+    <td colspan="2"></td>
+  `;
+  foot.appendChild(tr);
+  return {totBez, totNds, totTot};
+}
 
-  // Сводка
-  const s = document.getElementById('summary');
-  s.innerHTML = `
-    <div class="sum-item"><strong>${data.items.length}</strong>позиций</div>
+function renderSummary() {
+  const items  = parsedData.items || [];
+  const totBez = items.reduce((s,it) => s + it.summa, 0);
+  const totNds = items.reduce((s,it) => s + it.nds,   0);
+  const totTot = items.reduce((s,it) => s + it.itogo,  0);
+  document.getElementById('summary').innerHTML = `
+    <div class="sum-item"><strong>${items.length}</strong>позиций</div>
     <div class="sum-item"><strong>${fmt(totBez)} ₽</strong>без НДС</div>
     <div class="sum-item"><strong>${fmt(totNds)} ₽</strong>НДС 22%</div>
     <div class="sum-item"><strong>${fmt(totTot)} ₽</strong>итого с НДС</div>
   `;
+}
 
-  // АА-список
+function renderAA() {
   const aaBox  = document.getElementById('aa-box');
   const aaList = document.getElementById('aa-list');
   aaList.innerHTML = '';
-  if (data.aa && data.aa.length) {
-    data.aa.forEach(x => {
+  const aa = parsedData.aa || [];
+  if (aa.length) {
+    aa.forEach(x => {
       const li = document.createElement('li');
       li.textContent = `${x.name} × ${x.qty} шт.`;
       aaList.appendChild(li);
@@ -382,12 +465,99 @@ function renderTable(data) {
   } else {
     aaBox.style.display = 'none';
   }
-
-  document.getElementById('result-wrap').style.display = 'block';
-  document.getElementById('btn-dl').style.display = data.items.length ? 'block' : 'none';
 }
 
-// ── Скачать Word ─────────────────────────────────────────────────────────────
+// ── Изменение кол-ва ──────────────────────────────────────────────────────────
+function onQtyChange(inp, idx) {
+  const raw = parseInt(inp.value);
+  const qty = isNaN(raw) || raw < 1 ? 1 : Math.min(raw, 9999);
+  inp.value = qty;
+
+  const it = parsedData.items[idx];
+  it.qty   = qty;
+  it.summa = Math.round(qty * (it.price_d + it.kal) * 100) / 100;
+  it.nds   = Math.round(it.summa * 0.22 * 100) / 100;
+  it.itogo = Math.round((it.summa + it.nds) * 100) / 100;
+
+  const tr = inp.closest('tr');
+  tr.querySelector('.row-s').textContent = fmt(it.summa);
+  tr.querySelector('.row-n').textContent = fmt(it.nds);
+  tr.querySelector('.row-i').textContent = fmt(it.itogo);
+
+  renderFoot();
+  renderSummary();
+}
+
+// ── Удаление строки ───────────────────────────────────────────────────────────
+function deleteRow(idx) {
+  parsedData.items.splice(idx, 1);
+  renderTable();
+}
+
+// ── Ручное добавление позиции ─────────────────────────────────────────────────
+function toggleAddForm() {
+  const f = document.getElementById('add-row-form');
+  const isOpen = f.style.display === 'block';
+  f.style.display = isOpen ? 'none' : 'block';
+  document.getElementById('btn-add-toggle').textContent =
+    isOpen ? '+ Добавить позицию вручную' : '− Скрыть форму добавления';
+  if (!isOpen) document.getElementById('add-name').focus();
+}
+
+async function addRowManual() {
+  const name = document.getElementById('add-name').value.trim();
+  const qty  = Math.max(1, parseInt(document.getElementById('add-qty').value) || 1);
+  const errEl = document.getElementById('add-err');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'Введите наименование'; errEl.style.display='block'; return; }
+  if (!parsedData) { errEl.textContent = 'Сначала выполните расчёт'; errEl.style.display='block'; return; }
+
+  const btn = document.querySelector('.btn-add');
+  btn.disabled = true; btn.textContent = '…';
+
+  try {
+    const r = await fetch('/calc-single', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name, qty,
+        include_kalib: document.getElementById('include_kalib').checked,
+        discount: parseFloat(document.getElementById('discount').value || '0'),
+      })
+    });
+    const d = await r.json();
+
+    if (d.error) {
+      errEl.textContent = d.error; errEl.style.display = 'block';
+    } else if (d.items && d.items.length) {
+      d.items.forEach(it => parsedData.items.push(it));
+      document.getElementById('add-name').value = '';
+      document.getElementById('add-qty').value  = '1';
+      renderTable();
+    } else if (d.aa) {
+      if (!parsedData.aa) parsedData.aa = [];
+      parsedData.aa.push(d.aa);
+      errEl.textContent = `«${name}» не найдена в прайсе — добавлена в список АА`;
+      errEl.style.color = '#9a6200'; errEl.style.display = 'block';
+      renderAA();
+    }
+  } catch(e) {
+    errEl.textContent = 'Ошибка: ' + e.message; errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Добавить';
+    errEl.style.color = '#cc3333';
+  }
+}
+
+// Enter в поле имени — добавить
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('add-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addRowManual();
+  });
+});
+
+// ── Скачать Word ──────────────────────────────────────────────────────────────
 async function downloadKP() {
   if (!parsedData) return;
 
@@ -397,7 +567,7 @@ async function downloadKP() {
     customer:  document.getElementById('customer').value,
     order_num: document.getElementById('order_num').value,
     manager:   document.getElementById('manager').value,
-    discount:  parseFloat(document.getElementById('discount').value || '20'),
+    discount:  parseFloat(document.getElementById('discount').value || '0'),
   };
 
   const r = await fetch('/generate', {
@@ -414,10 +584,6 @@ async function downloadKP() {
   const fn   = payload.order_num ? `КП_${payload.order_num}.docx` : 'КП_ВЕГАЛИБР.docx';
   a.href = url; a.download = fn; a.click();
   URL.revokeObjectURL(url);
-}
-
-function escH(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>

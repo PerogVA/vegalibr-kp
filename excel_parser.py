@@ -26,6 +26,7 @@ def parse_excel(filepath_or_stream):
     # Поиск строки заголовков и колонок
     name_col      = None   # тип (Кольцо резьбовое / Калибр-скоба...)
     spec_col      = None   # обозначение / артикул (содержит М×шаг)
+    type_col      = None   # Тип: ПР / НЕ / ПР-НЕ (смета-формат)
     qty_col       = None
     price_col     = None   # цена без калибровки
     price_kal_col = None   # цена с калибровкой
@@ -48,8 +49,12 @@ def parse_excel(filepath_or_stream):
                 spec_col = cell.column
                 header_row_idx = header_row_idx or cell.row
 
+            # Тип (ПР/НЕ — смета-формат)
+            if re.fullmatch(r'тип', val):
+                type_col = cell.column
+
             # Кол-во
-            if re.search(r'\bкол[\-\.]?во?\b|\bqty\b|\bcount\b', val) \
+            if re.search(r'\bкол[\-\.]?во?\b|\bкол\.?\b|\bqty\b|\bcount\b', val) \
                     and '/' not in val and 'цена' not in val and 'руб' not in val:
                 qty_col = cell.column
 
@@ -87,21 +92,78 @@ def parse_excel(filepath_or_stream):
 
         type_name = str(rv.get(name_col) or '').strip()
         spec_name = str(rv.get(spec_col) or '').strip() if spec_col else ''
+        side_val  = str(rv.get(type_col) or '').strip().upper() if type_col else ''
 
         if not type_name and not spec_name:
             continue
 
-        # Полное наименование
-        if spec_name and re.search(r'[Мм]\s*\d', spec_name):
-            name = f"{type_name} {spec_name}".strip() if type_name else spec_name
+        # Пропускаем строки-разделители/заголовки секций (нет цифры в колонке qty)
+        raw_qty = rv.get(qty_col)
+        try:
+            float(str(raw_qty or ''))
+        except (ValueError, TypeError):
+            # не число → скорее всего заголовок секции, пропускаем
+            continue
+
+        # Определяем: является ли name_col просто резьбовым обозначением (смета-формат)?
+        # Смета-формат: наименование = «М4×0,7-6g» без указания типа калибра
+        name_is_spec = bool(re.match(r'^[МмMm]\s*\d', type_name)) and \
+                       not re.search(r'пробка|кольцо|калибр|скоба', type_name, re.I)
+
+        if name_is_spec:
+            # Смета-формат: тип калибра нужно вывести из квалитета + тип_col (ПР/НЕ)
+            thread_spec = type_name  # например «М4×0,7-6g»
+            # Определяем тип по квалитету
+            qual_match = re.search(
+                r'[МмMm]\s*\d+[,.]?\d*\s*[×xхХ]?\s*\d*[,.]?\d*\s*-\s*([A-Za-zА-Яа-яЁё0-9]+)',
+                thread_spec)
+            caliber_type = ''
+            if qual_match:
+                qual = qual_match.group(1)
+                if re.search(r'[gefdr]', qual):
+                    caliber_type = 'Калибр-кольцо'
+                elif re.search(r'[HН]', qual):
+                    caliber_type = 'Калибр-пробка'
+            # Если тип не определён по квалитету — пропускаем (нет смысла)
+            if not caliber_type:
+                continue
+            # Добавляем ПР/НЕ из колонки Тип
+            if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
+                name = f"{caliber_type} {thread_spec} {side_val}"
+            else:
+                name = f"{caliber_type} {thread_spec}"
+
+        elif spec_name and re.search(r'[Мм]\s*\d', spec_name):
+            # spec уже содержит тип калибра — не дублируем type_name
+            spec_has_type = bool(re.search(r'пробка|кольцо|калибр|скоба', spec_name, re.I))
+            if spec_has_type or not type_name:
+                name = spec_name
+            else:
+                # берём только тип из type_name (первые 1-2 слова без ГОСТ/артикулов)
+                type_clean = re.sub(r'\s*ГОСТ\s*\d+[\.\-–]\d+', '', type_name, flags=re.I)
+                type_clean = re.sub(r'\b\d{3,}[\-–]\d{3,}[\-–]?\w*\b', '', type_clean).strip()
+                type_clean = type_clean.split()[0] if type_clean else ''  # только первое слово
+                name = f"{type_clean} {spec_name}".strip() if type_clean else spec_name
+                # Добавляем ПР/НЕ из колонки Тип если есть
+                if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
+                    name = f"{name} {side_val}"
         else:
             name = type_name or spec_name
+            # Добавляем ПР/НЕ из колонки Тип если есть
+            if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ') and \
+                    not re.search(r'\b(ПР|НЕ)\b', name.upper()):
+                name = f"{name} {side_val}"
+
+        # Убираем ГОСТ и артикулы из любого варианта имени
+        name = re.sub(r'\s*ГОСТ\s*\d+[\.\-–]\d+', '', name, flags=re.I)
+        name = re.sub(r'\b\d{3,}[\-–]\d{3,}[\-–]?\w*\b', '', name)
+        name = ' '.join(name.split())
         if not name or name.isdigit():
             continue
 
-        # Количество
+        # Количество (raw_qty уже прошёл проверку float выше)
         try:
-            qty = int(float(str(rv.get(qty_col) or '')))
+            qty = int(float(str(raw_qty)))
         except (ValueError, TypeError):
             continue
         if qty <= 0:
