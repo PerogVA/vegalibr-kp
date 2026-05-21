@@ -11,7 +11,7 @@ from excel_parser import parse_excel
 from text_parser import parse_pdf, parse_text
 from doc_builder import build_kp
 from stock import lookup as stock_lookup
-from drawing_parser import parse_drawing
+# drawing_parser импортируется внутри маршрутов (lazy import)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vegalibr-secret-2025")
@@ -362,6 +362,7 @@ def parse_drawing_route():
     file_bytes = f.read()
     filename   = f.filename or ""
 
+    from drawing_parser import parse_drawing
     suggestions, err = parse_drawing(file_bytes, filename)
     if err and not suggestions:
         return jsonify({"error": err}), 400
