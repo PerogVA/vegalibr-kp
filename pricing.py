@@ -191,6 +191,7 @@ _RING_BASE = {
     (6.0,  1.0 ): 4180,
     (6.0,  0.75): 4180,
     (6.0,  0.5 ): 4180,
+    (7.0,  1.0 ): 10624,   # счёт 1341: 11503.80 − 880 kalib
     (8.0,  1.25): 4180,
     (8.0,  1.0 ): 4180,
     (8.0,  0.75): 4180,
@@ -291,6 +292,7 @@ _RING_BASE = {
     (68.0, 4.0 ): 22308,
     (68.0, 3.0 ): 19866,
     (68.0, 2.0 ): 20911,
+    (75.0, 1.5 ): 26373,   # счёт 1296: 27652.80 − 1280 kalib
 }
 
 # Разные цены для НЕ (если ПР ≠ НЕ)
@@ -400,6 +402,7 @@ _PLUG_COMBO = {
     (56.0, 4.0 ): 11154,
     (56.0, 3.0 ): 10109,
     (56.0, 2.0 ): 10109,
+    (56.0, 1.0 ): 14983,   # счёт 1328: per_piece≈8990+1280kalib≈10270
     (60.0, 5.5 ): 13937,
     (60.0, 4.0 ): 12551,
     (60.0, 3.0 ): 11495,
@@ -572,7 +575,8 @@ _BSW = {
     'BSW 1 7/8': (20493, 17842, 17842), 'BSW 2':     (20911, 18051, 18051),
 }
 
-_INCH_KALIB = 2180   # поверка трубных / дюймовых калибров, руб./шт.
+_INCH_KALIB       = 2180   # поверка трубных / дюймовых / UNF калибров, руб./шт.
+_STUB_ACME_KALIB  = 4720   # поверка STUB ACME (крупный диаметр), руб./шт.
 
 # ── UN / UNF / UNC (Unified Inch Threads) ────────────────────────────────────
 # Ключ: 'nominal-TPI'  напр. '1 1/8-12', '1 7/8-16'
@@ -593,8 +597,45 @@ _UNIFIED = {
 _STUB_ACME = {
     '4.224-8':    (104000, 91000,  None,   None  ),
     '4.377-8':    (None,   None,   195000, 182000),
-    '4.750-8-LH': (None,   None,   208000, 195000),
+    '4.750-8-LH': (None,   None,   228280, 214500),   # счёт 1352: 233000/219220 − 4720
 }
+
+# ── Трапецеидальная резьба TR ─────────────────────────────────────────────────
+# Ключ: 'diam-pitch'  напр. '28-5', '32-6'
+# Значение: (plug_ne, plug_pr, ring_ne, ring_pr)  — list price (без поверки)
+# Поверка: _kalib_thread('пробка_резьбовая'/'кольцо_резьбовое', diam, is_combo)
+_TRAPEZOIDAL = {
+    '28-5': (6960, 8910, 19950, 26450),   # счёт 1312: TR28x5 7h/7H
+}
+
+
+def parse_trapezoidal(name):
+    """
+    Парсит трапецеидальные резьбовые калибры TR (ГОСТ 9562 / DIN 103).
+    Возвращает ('tr_пробка'|'tr_кольцо', diam, pitch, side, is_combo) или None.
+    """
+    if not name:
+        return None
+    nl = name.lower()
+    if 'tr' not in nl and 'трапец' not in nl:
+        return None
+    m = re.search(r'tr\s*(\d+(?:[.,]\d+)?)\s*[x×хХ]\s*(\d+(?:[.,]\d+)?)', nl, re.I)
+    if not m:
+        return None
+    diam  = float(m.group(1).replace(',', '.'))
+    pitch = float(m.group(2).replace(',', '.'))
+
+    is_plug = 'пробка' in nl
+    is_ring = 'кольцо' in nl
+    if not is_plug and not is_ring:
+        return None
+
+    nu = name.upper()
+    is_combo = bool(re.search(r'ПР.{0,4}НЕ|НЕ.{0,4}ПР|ПР\s*И\s*НЕ', nu))
+    side = 'не' if (re.search(r'\bНЕ\b', nu) and not is_combo) else 'пр'
+
+    kind = 'tr_пробка' if is_plug else 'tr_кольцо'
+    return (kind, diam, pitch, side, is_combo)
 
 
 def _parse_inch_size(name_upper):
@@ -833,6 +874,11 @@ def parse_caliber(name):
     if stub:
         return stub
 
+    # Трапецеидальная резьба TR
+    tr = parse_trapezoidal(name)
+    if tr:
+        return tr
+
     # Резьбовое кольцо/пробка (с шагом или без)
     if re.search(r'м\s*\d+[,.]?\d*\s*[×xхХ]', nl):
         return parse_thread_ring(name)
@@ -973,7 +1019,24 @@ def calc_item(name, qty, include_kalib=True, discount=None):
             price = ring_pr if side == 'пр' else ring_ne
         if price is None:
             return None
-        kal_full = _INCH_KALIB
+        kal_full = _STUB_ACME_KALIB
+
+    # ── Трапецеидальная резьба TR ───────────────────────────────────────────
+    elif kind in ('tr_пробка', 'tr_кольцо'):
+        _, diam, pitch, side, is_combo = parsed
+        key = f'{int(diam) if diam == int(diam) else diam}-{int(pitch) if pitch == int(pitch) else pitch}'
+        entry = _TRAPEZOIDAL.get(key)
+        if entry is None:
+            return None
+        plug_ne, plug_pr, ring_ne, ring_pr = entry
+        if kind == 'tr_пробка':
+            price = (plug_ne + plug_pr) if is_combo else (plug_ne if side == 'не' else plug_pr)
+        else:
+            price = (ring_ne + ring_pr) if is_combo else (ring_ne if side == 'не' else ring_pr)
+        if price is None:
+            return None
+        thread_kind = 'пробка_резьбовая' if kind == 'tr_пробка' else 'кольцо_резьбовое'
+        kal_full = _kalib_thread(thread_kind, diam, is_combo)
 
     # ── Конические резьбовые калибры ───────────────────────────────────────
     elif kind in ('конус_кольцо', 'конус_пробка'):
