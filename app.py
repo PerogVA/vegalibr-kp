@@ -404,11 +404,11 @@ def drawing_doc():
         img_name   = filename,
     )
 
-    safe_name = (data['title'] or "чертёж").replace("/", "-").replace("\\", "-")[:60]
+    safe_name = (data['title'] or "чертёж").replace("/", "-").replace("\\", "-").strip()[:80]
     return send_file(
         buf,
         as_attachment=True,
-        download_name=f"Запрос_{safe_name}.docx",
+        download_name=f"{safe_name}.docx",
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
