@@ -422,35 +422,54 @@ _YELLOW_MAX = 5000
 def _ring_selling(diam, pitch, side):
     """
     Цена продажи кольца (с учётом жёлтого ценника для base ≤ 5 000).
+    Сначала берём цену из Excel прайса, fallback — хардкод.
     """
-    key = (float(diam), float(pitch))
-    if side == 'не' and key in _RING_BASE_NE:
-        base = _RING_BASE_NE[key]
+    import price_reader
+    d, p = float(diam), float(pitch)
+    key  = (d, p)
+
+    if d > 100:
+        return price_reader.ring_big(d, p, side)  # только прайс, АА если нет
+
+    if side == 'не':
+        base = price_reader.ring_ne(d, p) or \
+               _RING_BASE_NE.get(key) or \
+               price_reader.ring_pr(d, p) or \
+               _RING_BASE.get(key)
     else:
-        base = _RING_BASE.get(key)
+        base = price_reader.ring_pr(d, p) or _RING_BASE.get(key)
+
     if base is None:
         return None
     if base <= _YELLOW_MAX:
-        plug = _PLUG_COMBO.get(key)
+        plug = price_reader.plug_combo(d, p) or _PLUG_COMBO.get(key)
         if plug is not None:
-            addon = round(plug / 4)
-            return base + addon
+            return base + round(plug / 4)
     return base
 
 
 def _plug_selling(diam, pitch, is_combo):
     """
     Цена пробки.
-    ≤50 мм: всегда цена комплекта ПР-НЕ (продаётся только комплектом).
-    >50 мм: round((combo/2)×1,2) за штуку (ПР или НЕ).
+    ≤50 мм: всегда цена комплекта ПР-НЕ.
+    >50 мм (≤100): round((combo/2)×1,2) за штуку.
+    >100 мм: цена за штуку из отдельного листа прайса.
+    Сначала берём цену из Excel, fallback — хардкод.
     """
-    key = (float(diam), float(pitch))
-    combo = _PLUG_COMBO.get(key)
+    import price_reader
+    d, p = float(diam), float(pitch)
+    key  = (d, p)
+
+    if d > 100:
+        # Для >100мм в прайсе отдельные цены ПР/НЕ; берём ПР как базу
+        return price_reader.plug_big(d, p, 'пр')  # АА если нет в прайсе
+
+    combo = price_reader.plug_combo(d, p) or _PLUG_COMBO.get(key)
     if combo is None:
         return None
-    if float(diam) > 50:
+    if d > 50:
         return round((combo / 2) * 1.2)
-    return combo   # ≤50мм — всегда комплект, ПР/НЕ/ПР-НЕ → одна цена
+    return combo   # ≤50мм — всегда комплект
 
 
 def _kalib_thread(kind, diam, is_combo):

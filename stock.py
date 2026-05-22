@@ -6,18 +6,15 @@ import os
 import zipfile
 import xml.etree.ElementTree as ET
 
-_STOCK  = {}   # key → (price, qty)
-_LOADED = False
-_WNS    = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+_STOCK       = {}   # key → (price, qty)
+_CACHE_MTIME = None  # mtime файла при последней загрузке
+_WNS         = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
 
 
 # ── Загрузка ──────────────────────────────────────────────────────────────────
 
 def _load():
-    global _STOCK, _LOADED
-    if _LOADED:
-        return
-    _LOADED = True
+    global _STOCK, _CACHE_MTIME
 
     here = os.path.dirname(os.path.abspath(__file__))
     candidates = []
@@ -28,6 +25,16 @@ def _load():
     path = next((p for p in candidates if os.path.exists(p)), None)
     if not path:
         return
+
+    # Перезагружаем только если файл изменился
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return
+    if _CACHE_MTIME == mtime:
+        return
+    _CACHE_MTIME = mtime
+    _STOCK.clear()
 
     try:
         with zipfile.ZipFile(path) as z:
