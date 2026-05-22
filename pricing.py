@@ -503,14 +503,14 @@ def parse_thread_ring(name):
     else:
         return None
 
-    # М<диаметр>×<шаг>
-    m = re.search(r'м\s*(\d+[,.]?\d*)\s*[×xхХ]\s*(\d+[,.]?\d*)', nl)
+    # М<диаметр>×<шаг>  ([мm] — Cyrillic и Latin)
+    m = re.search(r'[мm]\s*(\d+[,.]?\d*)\s*[×xхХ]\s*(\d+[,.]?\d*)', nl)
     if m:
         diam  = float(m.group(1).replace(',', '.'))
         pitch = float(m.group(2).replace(',', '.'))
     else:
         # М<диаметр> без шага — пробуем стандартный шаг
-        m2 = re.search(r'м\s*(\d+[,.]?\d*)', nl)
+        m2 = re.search(r'[мm]\s*(\d+[,.]?\d*)', nl)
         if not m2:
             return None
         diam = float(m2.group(1).replace(',', '.'))
@@ -916,10 +916,10 @@ def parse_caliber(name):
     if tr:
         return tr
 
-    # Резьбовое кольцо/пробка (с шагом или без)
-    if re.search(r'м\s*\d+[,.]?\d*\s*[×xхХ]', nl):
+    # Резьбовое кольцо/пробка (с шагом или без); [мm] — Cyrillic и Latin
+    if re.search(r'[мm]\s*\d+[,.]?\d*\s*[×xхХ]', nl):
         return parse_thread_ring(name)
-    if re.search(r'м\s*\d+', nl) and ('кольцо' in nl or 'пробка' in nl):
+    if re.search(r'[мm]\s*\d+', nl) and ('кольцо' in nl or 'пробка' in nl):
         return parse_thread_ring(name)
 
     # Скоба гладкая
