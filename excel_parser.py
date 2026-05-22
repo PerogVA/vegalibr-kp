@@ -68,6 +68,11 @@ def parse_excel(filepath_or_stream):
         if name_col and qty_col:
             break
 
+    # Если есть только «Обозначение» без «Наименование» — используем его как name_col
+    if name_col is None and spec_col is not None:
+        name_col = spec_col
+        spec_col = None
+
     if name_col is None or qty_col is None:
         return [], "Не удалось найти колонки «Наименование» и «Кол-во»"
 
