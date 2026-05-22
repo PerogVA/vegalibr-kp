@@ -142,22 +142,27 @@ def ustanov_ring_price(size):
 # ── Калибровка гладких ───────────────────────────────────────────────────────
 def kalib_price(kind, size, name):
     if kind == "пробка":
-        if size <= 18.0: return 910
-        if size <= 60.0: return 850
-        return 0   # >60мм — уточнять
+        # Гладкие пробки продаются комплектом ПР-НЕ → поверка за комплект
+        if size <= 18.0:  return 910
+        if size <= 60.0:  return 850
+        if size <= 120.0: return 860   # 2 × 430
+        if size <= 360.0: return 1700  # 2 × 850
+        return 1940                    # 2 × 970
     elif kind == "кольцо_гладкое":
-        if size <= 18.0: return 910
-        if size <= 60.0: return 850
-        return 0
+        # Гладкие кольца продаются штучно → поверка per piece
+        if size <= 18.0:  return 460
+        if size <= 60.0:  return 430
+        if size <= 120.0: return 430
+        if size <= 360.0: return 850
+        return 970
     elif kind == "установочное_кольцо":
         return 0   # поверка не включается
     elif kind == "скоба":
-        # Граница по размеру (не по квалитету):
-        # < 2 мм (листовые по ГОСТ 18358-93) → 970; ≥ 2 мм → 850
-        if size < 2.0:
-            return 970
-        if size <= 60.0:
-            return 850
+        # Скоба ПР-НЕ (комплект) → поверка за комплект
+        if size <= 18.0:  return 970
+        if size <= 120.0: return 850
+        if size <= 360.0: return 1350
+        return 1860
     return 0
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -473,14 +478,15 @@ def _plug_selling(diam, pitch, is_combo):
 
 
 def _kalib_thread(kind, diam, is_combo):
-    """Поверка резьбовых калибров."""
+    """Поверка резьбовых калибров по прайс-листу (лист «цена калибровки»)."""
     d = float(diam)
-    if kind == 'кольцо_резьбовое':
-        return 1280 if d > 50 else 880
-    elif kind == 'пробка_резьбовая':
-        if d > 50:
-            return 1280
-        return 880  # ≤50мм: одна поверка на комплект ПР-НЕ
+    if kind in ('кольцо_резьбовое', 'пробка_резьбовая'):
+        if d <= 2.0:   return 1030
+        if d <= 3.5:   return 970
+        if d <= 50.0:  return 880
+        if d <= 100.0: return 1280
+        if d <= 260.0: return 2180
+        return 4055
     return 0
 
 
