@@ -857,6 +857,22 @@ def parse_caliber(name):
         return None
     nl = name.lower().strip()
 
+    # Контрольные калибры-пробки (КПР/КНЕ/КИ) — квалитет g, цена = комплект пробок
+    if 'контрольный' in nl or re.search(r'\bК[ПН]Р\b|\bКИ\b', name, re.IGNORECASE):
+        m = re.search(r'м\s*(\d+[,.]?\d*)\s*[×xхХ]\s*(\d+[,.]?\d*)', nl)
+        if m:
+            ctl_diam  = float(m.group(1).replace(',', '.'))
+            ctl_pitch = float(m.group(2).replace(',', '.'))
+        else:
+            m2 = re.search(r'м\s*(\d+[,.]?\d*)', nl)
+            if not m2:
+                return None
+            ctl_diam = float(m2.group(1).replace(',', '.'))
+            ctl_pitch = _STANDARD_PITCH.get(ctl_diam)
+            if ctl_pitch is None:
+                return None
+        return ('контроль_пробка', ctl_diam, ctl_pitch)
+
     # Конические резьбовые калибры (до метрических, чтобы не перепутать)
     if 'конус' in nl or re.search(r'\bRc\b', name, re.I):
         return parse_conical(name)
@@ -955,8 +971,17 @@ def calc_item(name, qty, include_kalib=True, discount=None):
 
     kind = parsed[0]
 
+    # ── Контрольные калибры-пробки (КПР/КНЕ/КИ) ──────────────────────────────
+    # Цена = стоимость комплекта пробок ПР-НЕ на тот же размер (согласно прайсу)
+    if kind == 'контроль_пробка':
+        _, ctl_diam, ctl_pitch = parsed
+        price = _plug_selling(ctl_diam, ctl_pitch, is_combo=True)
+        if price is None:
+            return None
+        kal_full = _kalib_thread('пробка_резьбовая', ctl_diam, is_combo=True)
+
     # ── Резьбовые кольца / пробки ──────────────────────────────────────────
-    if kind in ('кольцо_резьбовое', 'пробка_резьбовая'):
+    elif kind in ('кольцо_резьбовое', 'пробка_резьбовая'):
         _, diam, pitch, side, is_combo = parsed
 
         if kind == 'кольцо_резьбовое':

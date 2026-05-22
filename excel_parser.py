@@ -150,8 +150,12 @@ def parse_excel(filepath_or_stream):
             caliber_type = ''
             if qual_match:
                 qual = qual_match.group(1)
-                if re.search(r'[gefhdr]', qual):   # h — тоже вал (кольцо)
-                    caliber_type = 'Калибр-кольцо'
+                if re.search(r'[gefhdr]', qual):   # h — тоже вал (кольцо/контрольник)
+                    # КПР/КНЕ/КИ — контрольные калибры-пробки с квалитетом g
+                    if re.search(r'\bК[ПН]Р\b|\bКИ\b', thread_spec, re.IGNORECASE):
+                        caliber_type = 'Контрольный калибр-пробка'
+                    else:
+                        caliber_type = 'Калибр-кольцо'
                 elif re.search(r'[HН]', qual):
                     caliber_type = 'Калибр-пробка'
             # Если тип не определён по квалитету — пропускаем (нет смысла)
