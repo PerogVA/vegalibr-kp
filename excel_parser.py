@@ -99,6 +99,31 @@ def parse_excel(filepath_or_stream):
         spec_name = str(rv.get(spec_col) or '').strip() if spec_col else ''
         side_val  = str(rv.get(type_col) or '').strip().upper() if type_col else ''
 
+        # Предобработка ГОСТ-артикула: «8221-3056-7Н М12×1-7Н» → type_name=«М12×1-7Н», gost_side=«ПР»
+        gost_side = ''
+        if re.match(r'^[ВBвб]?\d{4}[-‐]\d', type_name):
+            m_art = re.match(r'^[ВBвб]?(\d{4})', type_name)
+            if m_art:
+                _art = m_art.group(1)
+                if _art in ('8221', '8311', '8313', '8315'):
+                    gost_side = 'ПР'
+                elif _art in ('8222', '8312', '8314', '8316'):
+                    gost_side = 'НЕ'
+            # Вырезаем номинал (М... или Пробка/Кольцо/Ø) после артикула
+            m_nom = re.search(
+                r'(?:[МмMm]\s*\d|[Пп]робка|[Кк]ольцо|Ø|Ø).+', type_name)
+            if m_nom:
+                type_name = m_nom.group(0).strip()
+
+        # «Пробка М2-6Н» / «Кольцо резьбовое» → «Калибр-пробка М2-6Н» / «Калибр-кольцо резьбовое»
+        if re.match(r'^[Пп]робка\b', type_name):
+            type_name = 'Калибр-пробка ' + type_name[6:].strip()
+        elif re.match(r'^[Кк]ольцо\b', type_name):
+            type_name = 'Калибр-кольцо ' + type_name[6:].strip()
+
+        # Результирующее ПР/НЕ: из колонки Тип (приоритет) или из артикула ГОСТ
+        eff_side = side_val or gost_side
+
         if not type_name and not spec_name:
             continue
 
@@ -125,16 +150,16 @@ def parse_excel(filepath_or_stream):
             caliber_type = ''
             if qual_match:
                 qual = qual_match.group(1)
-                if re.search(r'[gefdr]', qual):
+                if re.search(r'[gefhdr]', qual):   # h — тоже вал (кольцо)
                     caliber_type = 'Калибр-кольцо'
                 elif re.search(r'[HН]', qual):
                     caliber_type = 'Калибр-пробка'
             # Если тип не определён по квалитету — пропускаем (нет смысла)
             if not caliber_type:
                 continue
-            # Добавляем ПР/НЕ из колонки Тип
-            if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
-                name = f"{caliber_type} {thread_spec} {side_val}"
+            # Добавляем ПР/НЕ
+            if eff_side in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
+                name = f"{caliber_type} {thread_spec} {eff_side}"
             else:
                 name = f"{caliber_type} {thread_spec}"
 
@@ -149,15 +174,15 @@ def parse_excel(filepath_or_stream):
                 type_clean = re.sub(r'\b\d{3,}[\-–]\d{3,}[\-–]?\w*\b', '', type_clean).strip()
                 type_clean = type_clean.split()[0] if type_clean else ''  # только первое слово
                 name = f"{type_clean} {spec_name}".strip() if type_clean else spec_name
-                # Добавляем ПР/НЕ из колонки Тип если есть
-                if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
-                    name = f"{name} {side_val}"
+                # Добавляем ПР/НЕ
+                if eff_side in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ'):
+                    name = f"{name} {eff_side}"
         else:
             name = type_name or spec_name
-            # Добавляем ПР/НЕ из колонки Тип если есть
-            if side_val in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ') and \
+            # Добавляем ПР/НЕ
+            if eff_side in ('ПР', 'НЕ', 'ПР-НЕ', 'ПР/НЕ') and \
                     not re.search(r'\b(ПР|НЕ)\b', name.upper()):
-                name = f"{name} {side_val}"
+                name = f"{name} {eff_side}"
 
         # Убираем ГОСТ, артикулы и "×Nшт" из имени
         # ("×Nшт" — шаблонное кол-во в ячейке; реальное кол-во берём из колонки Кол-во)
