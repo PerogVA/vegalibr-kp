@@ -16,7 +16,7 @@ from stock import lookup as stock_lookup
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vegalibr-secret-2025")
 
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "vegalibr2025")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "calk2026")
 
 # ─────────────────────────────────────────────────────────────────────────────
 @app.route("/")
